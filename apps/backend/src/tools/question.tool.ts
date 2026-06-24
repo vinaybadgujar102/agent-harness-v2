@@ -1,6 +1,6 @@
 import type { FunctionT } from "./toolType";
 
-export const askClarifyingQuestionsFunction: FunctionT = {
+export const askClarifyingQuestionsFunctionDeclaration: FunctionT = {
   type: "function",
   name: "ask_clarifying_questions",
   description:

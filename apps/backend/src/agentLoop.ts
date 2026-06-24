@@ -1,8 +1,13 @@
 import { GoogleGenAI, type Step } from "@google/genai";
-import { askClarifyingQuestionsFunction } from "./tools/question.tool";
-import { planningTasksFunction } from "./tools/planningTasks.tool";
+import {
+  planningTasksFunction,
+  planningTasksFunctionDeclaration,
+} from "./tools/planningTasks.tool";
+import { askClarifyingQuestionsFunctionDeclaration } from "./tools/question.tool";
 
-const client = new GoogleGenAI({ apiKey: "" });
+const client = new GoogleGenAI({
+  apiKey: "",
+});
 
 async function agentLoop(prompt: string) {
   const messageHistory: Step[] = [
@@ -17,18 +22,34 @@ async function agentLoop(prompt: string) {
     },
   ];
 
-  while (true) {
+  outerLoop: while (true) {
     const interation = await client.interactions.create({
       model: "gemini-2.5-flash",
-      tools: [askClarifyingQuestionsFunction, planningTasksFunction],
+      tools: [
+        askClarifyingQuestionsFunctionDeclaration,
+        planningTasksFunctionDeclaration,
+      ],
       input: messageHistory,
     });
 
     for (const step of interation.steps) {
       if (step.type === "function_call") {
-        console.log(step);
-        return;
+        const { name, arguments: args } = step;
+        if (name === "planning_tasks") {
+          const result = planningTasksFunction(args.steps);
+
+          messageHistory.push({
+            type: "function_result",
+            name: step.name,
+            call_id: step.id,
+            result: [{ type: "text", text: JSON.stringify(result) }],
+          });
+        }
+        continue outerLoop;
       }
+      return interation.steps.at(-1).content[0].text;
     }
   }
 }
+
+console.log(await agentLoop("create plan for the simple to do app"));

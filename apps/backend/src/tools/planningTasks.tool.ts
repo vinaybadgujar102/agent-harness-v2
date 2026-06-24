@@ -1,6 +1,6 @@
 import type { FunctionT } from "./toolType";
 
-export const planningTasksFunction: FunctionT = {
+export const planningTasksFunctionDeclaration: FunctionT = {
   type: "function",
   name: "planning_tasks",
   description:
@@ -28,3 +28,13 @@ export const planningTasksFunction: FunctionT = {
     required: ["steps"],
   },
 };
+
+export type PlannedStep = {
+  stepNo: number;
+  stepText: string;
+};
+
+export function planningTasksFunction(steps: PlannedStep[]) {
+  console.log(steps);
+  return steps;
+}
