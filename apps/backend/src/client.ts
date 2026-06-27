@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
 
 export const client = new GoogleGenAI({
-  apiKey: "",
+  apiKey: "REMOVED",
 });

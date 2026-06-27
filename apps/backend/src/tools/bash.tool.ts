@@ -1,6 +1,7 @@
+import { Tool } from "../agentLoop";
 import type { FunctionT } from "./toolType";
 
-export cons bashToolFunctionDeclaration: FunctionT = {
+export const bashToolFunctionDeclaration: FunctionT = {
   type: "function",
   name: "bash_tool",
   description: "Uses the bash command",
@@ -15,6 +16,8 @@ export cons bashToolFunctionDeclaration: FunctionT = {
     required: ["command"],
   },
 };
+
+const bashTools = new Tool(bashToolFunctionDeclaration, bashTool);
 
 export async function bashTool(command: string) {
   try {

@@ -27,9 +27,21 @@ export async function agentLoopStream(prompt: string) {
       bashToolFunctionDeclaration,
     ],
   });
+
   for await (const event of interaction) {
     console.log(event);
   }
+}
+
+interface StreamResult {
+  interactionId: string;
+  functionCall?: {
+    name: string;
+    arguments: unknown;
+    callid: string;
+  };
+  text: string;
+  status: "completed" | "requires_action";
 }
 
 await agentLoopStream("hi how are you");
