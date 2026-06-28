@@ -1,4 +1,4 @@
-import type { Step, ToolCall } from "@google/genai";
+import type { Step } from "@google/genai";
 import { client } from "../../src/client";
 import { planningTasksFunction } from "../../src/tools/planningTasks.tool";
 import { bashTool } from "../../src/tools/bash.tool";
