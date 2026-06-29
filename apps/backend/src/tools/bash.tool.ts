@@ -1,4 +1,4 @@
-import { Tool } from "../agentLoop";
+import type { Tool } from "./toolClass";
 import type { FunctionT } from "./toolType";
 
 export const bashToolFunctionDeclaration: FunctionT = {
@@ -16,8 +16,6 @@ export const bashToolFunctionDeclaration: FunctionT = {
     required: ["command"],
   },
 };
-
-const bashTools = new Tool(bashToolFunctionDeclaration, bashTool);
 
 export async function bashTool(command: string) {
   try {
@@ -37,3 +35,21 @@ export async function bashTool(command: string) {
     };
   }
 }
+
+export const bashTool2: Tool = {
+  name: "bash_tool",
+  description: "Execute a bash command.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      command: {
+        type: "string",
+      },
+    },
+    required: ["command"],
+  },
+  async execute(args) {
+    const { command } = args as { command: string };
+    return bashTool(command);
+  },
+};

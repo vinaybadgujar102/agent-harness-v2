@@ -10,6 +10,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.106.0",
     "@google/genai": "^2.10.0",
     "@types/express": "^5.0.6",
     "express": "^5.2.1"

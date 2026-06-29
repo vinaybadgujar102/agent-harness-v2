@@ -8,7 +8,7 @@ import { bashTool, bashToolFunctionDeclaration } from "./tools/bash.tool";
 import { SYSTEM_INSTRUCTION } from "./utils/systems_instruction";
 
 const client = new GoogleGenAI({
-  apiKey: "",
+  apiKey: process.env.GEMINI_API_KEY,
 });
 
 async function agentLoop(prompt: string) {
