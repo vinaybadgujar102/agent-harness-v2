@@ -3,11 +3,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 
 export const client = new GoogleGenAI({
-  apiKey: "",
+  apiKey: process.env.GEMINI_API_KEY,
 });
 
 export const openAiClient = new OpenAI({
-  apiKey: "",
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export const anthropicClient = new Anthropic({
