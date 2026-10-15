@@ -17,7 +17,8 @@ export function toGoogleSteps(turns: ConversationTurn[]): Interactions.Step[] {
           type: "function_result",
           call_id: turn.callId,
           name: turn.toolName,
-          result: [{ type: "text", text: JSON.stringify(turn.result) }],
+          // gemini-2.5-flash rejects multimodal result blocks ("Multimodal function responses…")
+          result: JSON.stringify(turn.result),
         });
         break;
     }

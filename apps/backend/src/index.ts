@@ -1,12 +1,5 @@
-import { LovableAiAgent } from "./abstraction/agent";
-import { GoogleAgentProvider } from "./abstraction/providers/google";
-import { client } from "./client";
+import { startServer } from "./server";
 
-const prompt = "create simple html todo app";
-
-const agent = new LovableAiAgent(new GoogleAgentProvider(client));
-// const agent = new LovableAiAgent(new OpenAiProvider(openAiClient));
-// const agent = new LovableAiAgent(new ClaudeProvider(anthropicClient));
-
-const reply = await agent.create(prompt);
-console.log(reply);
+const server = startServer();
+console.log(`Agent harness SSE server listening on http://localhost:${server.port}`);
+console.log(`POST /api/agent/stream  body: { "prompt": "..." }`);

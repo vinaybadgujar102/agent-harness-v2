@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "start": "bun src/index.ts",
+    "stream": "bun src/cli-stream.ts",
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
