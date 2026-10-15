@@ -1,6 +1,6 @@
-import type { GoogleGenAI, Tool_2 } from "@google/genai";
+import type { GoogleGenAI, Interactions } from "@google/genai";
 import { toolRegistry, type Tool } from "../../tools/toolClass";
-import { toGoogleSteps } from "../adapters/google";
+import { lastModelTextFromSteps, toGoogleSteps } from "../adapters/google";
 import type { Conversation } from "../conversation";
 import { AGENT_SYSTEM_PROMPT } from "../systemPrompt";
 import type { InteractionStep, LLMProvider } from "../types";
@@ -11,7 +11,7 @@ export class GoogleAgentProvider implements LLMProvider {
     private systemPrompt = AGENT_SYSTEM_PROMPT,
   ) {}
 
-  private toGeminiTool(tool: Tool): Tool_2 {
+  private toGeminiTool(tool: Tool): Interactions.Tool {
     return {
       type: "function",
       name: tool.name,
@@ -39,11 +39,9 @@ export class GoogleAgentProvider implements LLMProvider {
       }
     }
 
-    const last = interaction.steps.at(-1)?.content[0].text;
-
     return {
       type: "message",
-      text: last ?? "",
+      text: lastModelTextFromSteps(interaction.steps),
     };
   }
 }

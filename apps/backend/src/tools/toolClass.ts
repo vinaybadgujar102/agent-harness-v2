@@ -1,10 +1,4 @@
-import { bashTool2 } from "./bash.tool";
-
-type ToolDetails = {
-  name: string;
-  decription: string;
-  parameters?: any;
-};
+import { bashTool } from "./bash.tool";
 
 export type Schema = {
   type: "object";
@@ -14,7 +8,7 @@ export type Schema = {
 
 type Property = {
   type: "string" | "number" | "boolean" | "array" | "object";
-  description?: "string";
+  description?: string;
 };
 
 export type Tool = {
@@ -25,4 +19,4 @@ export type Tool = {
   execute(args: unknown): Promise<unknown>;
 };
 
-export const toolRegistry = new Map<string, Tool>([["bash_tool", bashTool2]]);
+export const toolRegistry = new Map<string, Tool>([["bash_tool", bashTool]]);

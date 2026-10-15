@@ -10,10 +10,6 @@ export class Conversation {
     this.turns.push({ type: "user", content: prompt });
   }
 
-  addUserMessage(text: string) {
-    this.turns.push({ type: "user", content: text });
-  }
-
   recordToolCall(toolName: string, callId: string, args: unknown) {
     this.turns.push({ type: "tool_call", toolName, callId, args });
   }

@@ -1,5 +1,4 @@
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
-import type { ResponseInput } from "openai/resources/responses/responses.mjs";
 import type { ConversationTurn } from "../conversation";
 
 export function toChatMessages(
@@ -42,36 +41,4 @@ export function toChatMessages(
   }
 
   return messages;
-}
-
-export function toOpenAiInput(turns: ConversationTurn[]): ResponseInput {
-  const input: ResponseInput = [];
-
-  for (const turn of turns) {
-    switch (turn.type) {
-      case "user":
-        input.push({ role: "user", content: turn.content });
-        break;
-      case "tool_call":
-        input.push({
-          type: "function_call",
-          call_id: turn.callId,
-          name: turn.toolName,
-          arguments:
-            typeof turn.args === "string"
-              ? turn.args
-              : JSON.stringify(turn.args),
-        });
-        break;
-      case "tool_result":
-        input.push({
-          type: "function_call_output",
-          call_id: turn.callId,
-          output: JSON.stringify(turn.result),
-        });
-        break;
-    }
-  }
-
-  return input;
 }
