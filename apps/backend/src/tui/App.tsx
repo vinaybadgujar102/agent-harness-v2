@@ -1,10 +1,24 @@
 import { Box, Text, useApp, useInput } from "ink";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { LovableAiAgent } from "../abstraction/agent";
+import type { HarnessMode } from "../createAgent";
+import { modeConfig } from "../createAgent";
 import type { HarnessEvent } from "../abstraction/types";
+import {
+  implementationUserPrompt,
+  loadActivePlan,
+  saveActivePlan,
+} from "../plan/planStore";
+import {
+  filterSlashCommands,
+  slashCommandForInput,
+  slashMenuActive,
+} from "./slashCommands";
 import { statusForTool } from "./status";
+import { wrapForTerminal } from "./wrapText";
 
 type Line = { id: number; kind: "user" | "assistant" | "tool" | "error"; text: string };
+type UiMode = "agent" | "plan";
 
 export function App({
   agent,
@@ -17,12 +31,16 @@ export function App({
 }) {
   const { exit } = useApp();
   const [rows, setRows] = useState(process.stdout.rows || 24);
+  const [cols, setCols] = useState(process.stdout.columns || 80);
   const [lines, setLines] = useState<Line[]>([]);
   const [thinking, setThinking] = useState("");
   const [draft, setDraft] = useState("");
+  const [slashPick, setSlashPick] = useState(0);
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState("idle");
+  const [uiMode, setUiMode] = useState<UiMode>("agent");
   const [cursorOn, setCursorOn] = useState(true);
+  const uiModeRef = useRef<UiMode>("agent");
   const nextId = useRef(1);
   const runningRef = useRef(false);
   const toolRef = useRef(false);
@@ -35,18 +53,60 @@ export function App({
     setLines((prev) => [...prev, { id, kind, text }]);
   };
 
-  const submit = (raw: string) => {
+  const startNewChat = () => {
+    agent.clearConversation();
+    setLines([]);
+    setThinking("");
+    setDraft("");
+    assistantBuf.current = "";
+    setStatus("idle");
+  };
+
+  const applyHarnessMode = (mode: HarnessMode) => {
+    agent.setMode(modeConfig(workspace, mode));
+    const nextUi: UiMode = mode === "plan" ? "plan" : "agent";
+    uiModeRef.current = nextUi;
+    setUiMode(nextUi);
+  };
+
+  const submit = (
+    raw: string,
+    opts?: { afterImplement?: boolean },
+  ) => {
     const text = raw.trim();
     if (!text || runningRef.current) return;
-    if (text === "/quit") {
+    const slash = slashCommandForInput(text);
+    if (slash?.action === "quit") {
       exit();
       return;
     }
-    if (text === "/clear") {
-      agent.clearConversation();
-      setLines([]);
-      setThinking("");
-      setDraft("");
+    if (slash?.action === "new-chat") {
+      startNewChat();
+      return;
+    }
+    if (slash?.action === "plan-mode") {
+      applyHarnessMode("plan");
+      startNewChat();
+      push("tool", "plan mode — no file edits; reply saved to .tuffy/plans/active.md");
+      return;
+    }
+    if (slash?.action === "agent-mode") {
+      applyHarnessMode("agent");
+      startNewChat();
+      push("tool", "agent mode — filesystem tools enabled");
+      return;
+    }
+    if (slash?.action === "implement-plan") {
+      void (async () => {
+        const plan = await loadActivePlan(workspace);
+        if (!plan) {
+          push("error", "No plan at .tuffy/plans/active.md — use /plan first");
+          return;
+        }
+        applyHarnessMode("implement");
+        startNewChat();
+        submit(implementationUserPrompt(plan), { afterImplement: true });
+      })();
       return;
     }
 
@@ -70,6 +130,21 @@ export function App({
         const message = err instanceof Error ? err.message : String(err);
         push("error", message);
       } finally {
+        if (opts?.afterImplement) {
+          applyHarnessMode("agent");
+        }
+        if (uiModeRef.current === "plan") {
+          const planText = assistantBuf.current.trim();
+          if (planText) {
+            try {
+              await saveActivePlan(workspace, planText);
+              push("tool", "plan saved → .tuffy/plans/active.md");
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              push("error", `plan save failed: ${message}`);
+            }
+          }
+        }
         runningRef.current = false;
         toolRef.current = false;
         abortRef.current = null;
@@ -134,7 +209,10 @@ export function App({
   }, []);
 
   useEffect(() => {
-    const onResize = () => setRows(process.stdout.rows || 24);
+    const onResize = () => {
+      setRows(process.stdout.rows || 24);
+      setCols(process.stdout.columns || 80);
+    };
     process.stdout.on("resize", onResize);
     return () => {
       process.stdout.off("resize", onResize);
@@ -148,8 +226,24 @@ export function App({
     submit(firstPrompt);
   }, [firstPrompt]);
 
+  const slashMatches = useMemo(() => filterSlashCommands(draft), [draft]);
+  const slashMenuOpen =
+    !running && slashMenuActive(draft) && slashMatches.length > 0;
+  const slashIndex = Math.min(
+    slashPick,
+    Math.max(0, slashMatches.length - 1),
+  );
+
+  useEffect(() => {
+    setSlashPick(0);
+  }, [draft]);
+
   useInput((input, key) => {
     if (key.escape) {
+      if (slashMenuOpen) {
+        setDraft("");
+        return;
+      }
       if (runningRef.current && !toolRef.current) {
         abortRef.current?.abort();
       }
@@ -160,6 +254,32 @@ export function App({
       return;
     }
     if (runningRef.current) return;
+
+    if (slashMenuOpen) {
+      if (key.upArrow) {
+        setSlashPick((i) =>
+          slashMatches.length ? (i - 1 + slashMatches.length) % slashMatches.length : 0,
+        );
+        return;
+      }
+      if (key.downArrow) {
+        setSlashPick((i) =>
+          slashMatches.length ? (i + 1) % slashMatches.length : 0,
+        );
+        return;
+      }
+      if (key.tab) {
+        const cmd = slashMatches[slashIndex];
+        if (cmd) setDraft(cmd.name);
+        return;
+      }
+      if (key.return) {
+        const cmd = slashMatches[slashIndex];
+        if (cmd) submit(cmd.name);
+        return;
+      }
+    }
+
     if (key.return) {
       submit(draft);
       return;
@@ -172,7 +292,9 @@ export function App({
   });
 
   const thinkH = Math.max(4, Math.floor(rows * 0.25));
-  const inputH = 3;
+  const thinkTextWidth = Math.max(10, cols - 4);
+  const slashMenuH = slashMenuOpen ? slashMatches.length + 1 : 0;
+  const inputH = 3 + slashMenuH;
   const statusH = 1;
   const transcriptH = Math.max(6, rows - thinkH - inputH - statusH);
 
@@ -181,16 +303,20 @@ export function App({
       <Box
         flexDirection="column"
         height={thinkH}
+        width="100%"
         borderStyle="single"
         borderColor="yellow"
         paddingX={1}
+        overflow="hidden"
       >
         <Text color="yellow" dimColor>
           thinking
         </Text>
-        <Text dimColor wrap="truncate">
-          {thinking || " "}
-        </Text>
+        <Box flexGrow={1} width="100%" overflow="hidden">
+          <Text dimColor wrap="wrap">
+            {wrapForTerminal(thinking || " ", thinkTextWidth)}
+          </Text>
+        </Box>
       </Box>
       <Box
         flexDirection="column"
@@ -219,12 +345,31 @@ export function App({
       </Box>
       <Box height={statusH}>
         <Text inverse>
-          {` ${status}  ${workspace} `}
+          {` ${status}  ${uiMode}  ${workspace} `}
         </Text>
       </Box>
-      <Box height={inputH} borderStyle="single" paddingX={1}>
+      <Box
+        flexDirection="column"
+        height={inputH}
+        borderStyle="single"
+        paddingX={1}
+        justifyContent="flex-end"
+      >
+        {slashMenuOpen ? (
+          <Box flexDirection="column" marginBottom={1}>
+            {slashMatches.map((cmd, i) => (
+              <Box key={cmd.name} gap={1}>
+                <Text inverse={i === slashIndex} bold={i === slashIndex}>
+                  {cmd.name}
+                </Text>
+                <Text dimColor={i !== slashIndex}>{cmd.description}</Text>
+              </Box>
+            ))}
+            <Text dimColor>↑↓ select · enter run · tab complete · esc dismiss</Text>
+          </Box>
+        ) : null}
         {running ? (
-          <Text dimColor>esc abort (model only)  /quit  /clear</Text>
+          <Text dimColor>esc abort  /plan  /implement  /agent  /new  /quit</Text>
         ) : (
           <Box>
             <Text>{`> ${draft}`}</Text>

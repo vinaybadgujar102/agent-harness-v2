@@ -1,4 +1,4 @@
-import type { Tool } from "../tools/toolClass";
+import type { LlmProviderOptions, Tool } from "../tools/toolClass";
 import { Conversation } from "./conversation";
 import type {
   ConverseStreamOptions,
@@ -56,6 +56,16 @@ export class LovableAiAgent {
 
   clearConversation() {
     this.conversation.clear();
+  }
+
+  setMode(options: LlmProviderOptions) {
+    if (options.tools !== undefined) {
+      this.tools = new Map(options.tools.map((t) => [t.name, t]));
+    }
+    const provider = this.provider as AgentProvider & {
+      setLlmOptions?(o: LlmProviderOptions): void;
+    };
+    provider.setLlmOptions?.(options);
   }
 
   getTurns() {

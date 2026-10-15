@@ -1,15 +1,10 @@
 import { mkdir, readdir, stat } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { Tool } from "./toolClass";
+import { z } from "zod";
+import { defineTool } from "./toolClass";
 import { resolveWorkspacePath } from "./workspacePath";
 
 export const MAX_READ_BYTES = 256 * 1024;
-
-function strArg(args: unknown, key: string): string | undefined {
-  if (typeof args !== "object" || args === null) return undefined;
-  const value = (args as Record<string, unknown>)[key];
-  return typeof value === "string" ? value : undefined;
-}
 
 async function jail(
   workspaceRoot: string,
@@ -18,22 +13,33 @@ async function jail(
   return resolveWorkspacePath(workspaceRoot, userPath);
 }
 
-export function createFsTools(workspaceRoot: string): Tool[] {
-  return [
-    {
+const readFileInput = z.object({
+  path: z.string().describe("File path"),
+});
+
+const writeFileInput = z.object({
+  path: z.string().describe("File path"),
+  content: z.string().describe("File contents"),
+});
+
+const listDirInput = z.object({
+  path: z
+    .string()
+    .optional()
+    .describe("Directory path (default .)"),
+});
+
+export function createFsTools(
+  workspaceRoot: string,
+  options?: { writable?: boolean },
+) {
+  const tools = [
+    defineTool({
       name: "read_file",
       description:
         "Read a UTF-8 text file inside the workspace. Path may be relative or absolute if it stays in the workspace. Max 256KiB.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          path: { type: "string", description: "File path" },
-        },
-        required: ["path"],
-      },
-      async execute(args) {
-        const path = strArg(args, "path");
-        if (path === undefined) return { error: "path is required" };
+      input: readFileInput,
+      async execute({ path }) {
         const resolved = await jail(workspaceRoot, path);
         if (!resolved.ok) return { error: resolved.error };
         let info;
@@ -57,24 +63,13 @@ export function createFsTools(workspaceRoot: string): Tool[] {
           return { error: "file is not valid UTF-8 text" };
         }
       },
-    },
-    {
+    }),
+    defineTool({
       name: "write_file",
       description:
         "Write a UTF-8 text file inside the workspace. Overwrites. Creates parent directories.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          path: { type: "string", description: "File path" },
-          content: { type: "string", description: "File contents" },
-        },
-        required: ["path", "content"],
-      },
-      async execute(args) {
-        const path = strArg(args, "path");
-        const content = strArg(args, "content");
-        if (path === undefined) return { error: "path is required" };
-        if (content === undefined) return { error: "content is required" };
+      input: writeFileInput,
+      async execute({ path, content }) {
         const resolved = await jail(workspaceRoot, path);
         if (!resolved.ok) return { error: resolved.error };
         try {
@@ -87,22 +82,13 @@ export function createFsTools(workspaceRoot: string): Tool[] {
         await Bun.write(resolved.path, content);
         return { path: resolved.path, written: content.length };
       },
-    },
-    {
+    }),
+    defineTool({
       name: "list_dir",
       description:
         "List one directory level inside the workspace. Includes dotfiles. Does not recurse.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          path: {
-            type: "string",
-            description: "Directory path (default .)",
-          },
-        },
-      },
-      async execute(args) {
-        const path = strArg(args, "path") ?? ".";
+      input: listDirInput,
+      async execute({ path = "." }) {
         const resolved = await jail(workspaceRoot, path);
         if (!resolved.ok) return { error: resolved.error };
         let info;
@@ -123,6 +109,10 @@ export function createFsTools(workspaceRoot: string): Tool[] {
             })),
         };
       },
-    },
+    }),
   ];
+  if (options?.writable === false) {
+    return tools.filter((t) => t.name !== "write_file");
+  }
+  return tools;
 }

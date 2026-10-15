@@ -28,6 +28,15 @@ export class GoogleAgentProvider implements LLMProvider, StreamingLLMProvider {
     this.tools = options.tools ?? [];
   }
 
+  setLlmOptions(options: LlmProviderOptions) {
+    if (options.systemPrompt !== undefined) {
+      this.systemPrompt = options.systemPrompt;
+    }
+    if (options.tools !== undefined) {
+      this.tools = options.tools;
+    }
+  }
+
   private toGeminiTool(tool: Tool): Interactions.Tool {
     return {
       type: "function",
