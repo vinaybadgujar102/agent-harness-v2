@@ -1,13 +1,15 @@
 import type { GoogleGenAI, Interactions } from "@google/genai";
-import { toolRegistry, type Tool } from "../../tools/toolClass";
+import type { LlmProviderOptions, Tool } from "../../tools/toolClass";
 import { lastModelTextFromSteps, toGoogleSteps } from "../adapters/google";
 import {
   mapGoogleInteractionStream,
   type GoogleInteractionSseEvent,
 } from "../adapters/googleStream";
+import { takeUntilAbort } from "../abortIterable";
 import type { Conversation } from "../conversation";
 import { AGENT_SYSTEM_PROMPT } from "../systemPrompt";
 import type {
+  ConverseStreamOptions,
   HarnessEvent,
   InteractionStep,
   LLMProvider,
@@ -15,10 +17,16 @@ import type {
 } from "../types";
 
 export class GoogleAgentProvider implements LLMProvider, StreamingLLMProvider {
+  private systemPrompt: string;
+  private tools: Tool[];
+
   constructor(
     private googleClient: GoogleGenAI,
-    private systemPrompt = AGENT_SYSTEM_PROMPT,
-  ) {}
+    options: LlmProviderOptions = {},
+  ) {
+    this.systemPrompt = options.systemPrompt ?? AGENT_SYSTEM_PROMPT;
+    this.tools = options.tools ?? [];
+  }
 
   private toGeminiTool(tool: Tool): Interactions.Tool {
     return {
@@ -32,7 +40,9 @@ export class GoogleAgentProvider implements LLMProvider, StreamingLLMProvider {
   private interactionParams(conversation: Conversation) {
     return {
       model: "gemini-2.5-flash" as const,
-      tools: [...toolRegistry.values()].map((t) => this.toGeminiTool(t)),
+      ...(this.tools.length > 0
+        ? { tools: this.tools.map((t) => this.toGeminiTool(t)) }
+        : {}),
       system_instruction: this.systemPrompt,
       generation_config: { thinking_summaries: "auto" as const },
       input: toGoogleSteps(conversation.getTurns()),
@@ -63,13 +73,16 @@ export class GoogleAgentProvider implements LLMProvider, StreamingLLMProvider {
 
   async *converseStream(
     conversation: Conversation,
+    options?: ConverseStreamOptions,
   ): AsyncGenerator<HarnessEvent> {
     const stream = await this.googleClient.interactions.create({
       ...this.interactionParams(conversation),
       stream: true,
     });
-    yield* mapGoogleInteractionStream(
+    const events = takeUntilAbort(
       stream as AsyncIterable<GoogleInteractionSseEvent>,
+      options?.signal,
     );
+    yield* mapGoogleInteractionStream(events);
   }
 }

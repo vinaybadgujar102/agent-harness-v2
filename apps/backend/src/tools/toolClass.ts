@@ -1,5 +1,3 @@
-import { bashTool } from "./bash.tool";
-
 export type Schema = {
   type: "object";
   properties: Record<string, Property>;
@@ -19,4 +17,7 @@ export type Tool = {
   execute(args: unknown): Promise<unknown>;
 };
 
-export const toolRegistry = new Map<string, Tool>([["bash_tool", bashTool]]);
+export type LlmProviderOptions = {
+  systemPrompt?: string;
+  tools?: Tool[];
+};

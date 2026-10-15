@@ -6,7 +6,16 @@ To install dependencies:
 bun install
 ```
 
-To run the SSE server:
+TUI (`tuffy-agent`), jailed to cwd or `--workspace`:
+
+```bash
+bun run tuffy init
+bun run tuffy -- --workspace /path/to/folder
+```
+
+Link the bin (optional): `bun link` in this directory, then `tuffy-agent` from any folder.
+
+To run the SSE server (no workspace tools):
 
 ```bash
 bun run start

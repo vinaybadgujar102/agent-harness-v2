@@ -9,6 +9,9 @@ export function toAnthropicMessages(turns: ConversationTurn[]): MessageParam[] {
       case "user":
         messages.push({ role: "user", content: turn.content });
         break;
+      case "assistant":
+        messages.push({ role: "assistant", content: turn.content });
+        break;
       case "tool_call":
         messages.push({
           role: "assistant",

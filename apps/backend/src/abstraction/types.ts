@@ -58,9 +58,14 @@ export interface LLMProvider {
 }
 
 /** Streaming converse: yields HarnessEvent, ends after turn_completed or error. */
+export type ConverseStreamOptions = {
+  signal?: AbortSignal;
+};
+
 export interface StreamingLLMProvider {
   converseStream(
     conversation: Conversation,
+    options?: ConverseStreamOptions,
   ): AsyncIterable<HarnessEvent>;
 }
 

@@ -1,13 +1,7 @@
-import { LovableAiAgent } from "./abstraction/agent";
-import { GoogleAgentProvider } from "./abstraction/providers/google";
-import { client } from "./client";
+import { createAgent } from "./createAgent";
 import { harnessEventsToReadableStream } from "./http/sse";
 
 const DEFAULT_PORT = 3000;
-
-export function createAgent() {
-  return new LovableAiAgent(new GoogleAgentProvider(client));
-}
 
 export function startServer(port = Number(process.env.PORT) || DEFAULT_PORT) {
   const agent = createAgent();

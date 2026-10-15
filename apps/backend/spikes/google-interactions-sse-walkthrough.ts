@@ -4,7 +4,6 @@
  * Run: bun apps/backend/spikes/google-interactions-sse-walkthrough.ts --tools
  */
 import { GoogleGenAI } from "@google/genai";
-import { bashTool } from "../src/tools/bash.tool";
 
 const useTools = process.argv.includes("--tools");
 
@@ -68,9 +67,15 @@ const stream = await ai.interactions.create({
         tools: [
           {
             type: "function" as const,
-            name: bashTool.name,
-            description: bashTool.description,
-            parameters: bashTool.inputSchema,
+            name: "bash_tool",
+            description: "Execute a bash command.",
+            parameters: {
+              type: "object",
+              properties: {
+                command: { type: "string", description: "Bash command to execute" },
+              },
+              required: ["command"],
+            },
           },
         ],
       }

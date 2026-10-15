@@ -2,13 +2,18 @@
   "name": "backend",
   "type": "module",
   "private": true,
+  "bin": {
+    "tuffy-agent": "./src/tui/cli.ts"
+  },
   "scripts": {
     "start": "bun src/index.ts",
     "stream": "bun src/cli-stream.ts",
+    "tuffy": "bun src/tui/cli.ts",
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/react": "^19.3.0"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -16,6 +21,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.106.0",
     "@google/genai": "^2.10.0",
-    "openai": "^6.45.0"
+    "ink": "^8.0.0",
+    "openai": "^6.45.0",
+    "react": "^19.3.1"
   }
 }

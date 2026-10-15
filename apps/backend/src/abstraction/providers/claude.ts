@@ -1,15 +1,21 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { toolRegistry, type Tool } from "../../tools/toolClass";
+import type { LlmProviderOptions, Tool } from "../../tools/toolClass";
 import { toAnthropicMessages } from "../adapters/anthropic";
 import type { Conversation } from "../conversation";
 import { AGENT_SYSTEM_PROMPT } from "../systemPrompt";
 import type { InteractionStep, LLMProvider } from "../types";
 
 export class ClaudeProvider implements LLMProvider {
+  private systemPrompt: string;
+  private tools: Tool[];
+
   constructor(
     private anthropic: Anthropic,
-    private systemPrompt = AGENT_SYSTEM_PROMPT,
-  ) {}
+    options: LlmProviderOptions = {},
+  ) {
+    this.systemPrompt = options.systemPrompt ?? AGENT_SYSTEM_PROMPT;
+    this.tools = options.tools ?? [];
+  }
 
   private toClaudeTool(tool: Tool) {
     return {
@@ -25,7 +31,9 @@ export class ClaudeProvider implements LLMProvider {
       max_tokens: 1024,
       system: this.systemPrompt,
       messages: toAnthropicMessages(conversation.getTurns()),
-      tools: [...toolRegistry.values()].map((t) => this.toClaudeTool(t)),
+      ...(this.tools.length > 0
+        ? { tools: this.tools.map((t) => this.toClaudeTool(t)) }
+        : {}),
     });
 
     for (const block of response.content) {

@@ -1,16 +1,22 @@
 import type OpenAI from "openai";
 import type { ChatCompletionTool } from "openai/resources/chat/completions.mjs";
-import { toolRegistry, type Tool } from "../../tools/toolClass";
+import type { LlmProviderOptions, Tool } from "../../tools/toolClass";
 import { toChatMessages } from "../adapters/openai";
 import type { Conversation } from "../conversation";
 import { AGENT_SYSTEM_PROMPT } from "../systemPrompt";
 import type { InteractionStep, LLMProvider } from "../types";
 
 export class OpenAiProvider implements LLMProvider {
+  private systemPrompt: string;
+  private tools: Tool[];
+
   constructor(
     private openAiClient: OpenAI,
-    private systemPrompt = AGENT_SYSTEM_PROMPT,
-  ) {}
+    options: LlmProviderOptions = {},
+  ) {
+    this.systemPrompt = options.systemPrompt ?? AGENT_SYSTEM_PROMPT;
+    this.tools = options.tools ?? [];
+  }
 
   private toChatTool(tool: Tool): ChatCompletionTool {
     return {
@@ -30,7 +36,9 @@ export class OpenAiProvider implements LLMProvider {
         { role: "system", content: this.systemPrompt },
         ...toChatMessages(conversation.getTurns()),
       ],
-      tools: [...toolRegistry.values()].map((t) => this.toChatTool(t)),
+      ...(this.tools.length > 0
+        ? { tools: this.tools.map((t) => this.toChatTool(t)) }
+        : {}),
       max_tokens: 1024,
     });
 

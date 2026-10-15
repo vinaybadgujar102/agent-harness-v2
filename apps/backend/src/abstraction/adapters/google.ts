@@ -12,6 +12,14 @@ export function toGoogleSteps(turns: ConversationTurn[]): Interactions.Step[] {
           content: [{ type: "text", text: turn.content }],
         });
         break;
+      case "assistant":
+        steps.push({
+          type: "model_output",
+          content: [{ type: "text", text: turn.content }],
+        });
+        break;
+      case "tool_call":
+        break;
       case "tool_result":
         steps.push({
           type: "function_result",
