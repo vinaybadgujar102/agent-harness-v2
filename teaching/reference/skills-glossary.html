@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Glossary — Agent Skills</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Reference</p>
+      <h1>Agent Skills glossary</h1>
+      <p class="sub">One term, one meaning. Lessons must use these words.</p>
+
+      <dl>
+        <dt>Skill</dt>
+        <dd>
+          A directory with a required <code>SKILL.md</code>. Metadata plus
+          instructions (and optional scripts/references). Not a model tool
+          schema.
+        </dd>
+        <dt>Tool</dt>
+        <dd>
+          A harness-registered function the model can call
+          (<code>read_file</code>, <code>write_file</code>,
+          <code>list_dir</code>). Skills <em>use</em> tools; they are not
+          tools.
+        </dd>
+        <dt>SKILL.md</dt>
+        <dd>
+          YAML frontmatter + Markdown body. Required fields:
+          <code>name</code>, <code>description</code>.
+        </dd>
+        <dt>Progressive disclosure</dt>
+        <dd>
+          Load cheap metadata for every skill; load the body only after
+          selection; load bundled files only when the body points at them.
+        </dd>
+        <dt>Discovery index</dt>
+        <dd>
+          Compact list injected at session start so the model can choose.
+          Always: <code>name</code> + <code>description</code>. In this
+          harness also the workspace path to <code>SKILL.md</code>, because
+          activation is <code>read_file</code>.
+        </dd>
+        <dt>Activation</dt>
+        <dd>
+          Model matches a <code>description</code>, then loads that
+          <code>SKILL.md</code> body into context. In this repo: one
+          <code>read_file</code> on the index path. Not a new tool schema.
+        </dd>
+        <dt>name (frontmatter)</dt>
+        <dd>
+          Skill id. Must equal the parent directory. Spec charset:
+          lowercase alphanumeric and hyphens only.
+        </dd>
+        <dt>description (frontmatter)</dt>
+        <dd>
+          What the skill does and when to use it. This is the discovery
+          index text, not the procedure.
+        </dd>
+      </dl>
+
+      <p>
+        Spec:
+        <a href="https://agentskills.io/specification">agentskills.io/specification</a>.
+      </p>
+      <p>
+        Lesson:
+        <a href="../lessons/0006-skill-is-not-a-tool.html">0006</a>,
+        <a href="../lessons/0007-write-a-skill-md.html">0007</a>.
+      </p>
+    </div>
+  </body>
+</html>

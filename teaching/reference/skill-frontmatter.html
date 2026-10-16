@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>SKILL.md frontmatter rules</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Reference</p>
+      <h1>SKILL.md frontmatter</h1>
+      <p class="sub">
+        Compressed from
+        <a href="https://agentskills.io/specification">agentskills.io/specification</a>.
+      </p>
+
+      <pre>---
+name: implement-plan
+description: Implement the saved plan at .tuffy/plans/active.md. Use when the user asks to execute or implement the active plan.
+---
+
+# Implement plan
+…body…</pre>
+
+      <h2>Required</h2>
+      <ul>
+        <li>
+          <code>name</code> — 1–64 chars; only <code>a-z</code>, <code>0-9</code>,
+          hyphen; no leading/trailing hyphen; no <code>--</code>; must equal
+          the parent directory name.
+        </li>
+        <li>
+          <code>description</code> — 1–1024 chars; what it does <em>and</em>
+          when to use it (this is what the discovery index matches on).
+        </li>
+      </ul>
+
+      <h2>Optional (ignore until you need them)</h2>
+      <p>
+        <code>license</code>, <code>compatibility</code>,
+        <code>metadata</code>, <code>allowed-tools</code> (experimental).
+      </p>
+
+      <h2>Body</h2>
+      <p>
+        No format restrictions. Spec: keep the main file under 500 lines;
+        point at <code>references/</code> instead of stuffing a library.
+        Name the tools this agent actually has.
+      </p>
+
+      <p>
+        <a href="../lessons/0007-write-a-skill-md.html">Lesson 0007</a>
+        ·
+        <a href="./skills-glossary.html">Glossary</a>
+      </p>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 0006 — A skill is not a tool</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Lesson 0006 · Mission: Agent Skills</p>
+      <h1>A skill is not a tool</h1>
+      <p class="sub">
+        One win: you can name the three load levels and map Level 2 onto
+        <code>read_file</code>.
+      </p>
+
+      <nav class="toc">
+        <a href="../reference/skills-glossary.html">Glossary</a>
+        ·
+        <a href="../reference/skills-cheatsheet.html">Cheatsheet</a>
+        ·
+        <a href="../MISSION.md">Mission</a>
+      </nav>
+
+      <h2>1. Read this first (primary source)</h2>
+      <p>
+        Format and load order live in the open spec, not in the paper:
+        <a href="https://agentskills.io/specification">Agent Skills specification</a>.
+        Same three-stage story in
+        <a href="https://docs.anthropic.com/en/docs/agents-and-tools/agent-skills/overview"
+          >Anthropic’s overview</a
+        >
+        (metadata always; body when triggered; extra files as needed).
+      </p>
+      <p>
+        The PDF you sent,
+        <a href="https://arxiv.org/pdf/2602.08004">Ling, Zhong, Huang 2026</a>,
+        measures 40,285 public listings. Use it for scale, redundancy, and
+        risk — Appendix A only restates the same index-then-load pattern.
+      </p>
+
+      <h2>2. Two different objects</h2>
+      <div class="card">
+        <p>
+          <strong>Tool</strong> — JSON schema the model calls. This repo
+          already has <code>read_file</code>, <code>write_file</code>,
+          <code>list_dir</code> in
+          <code>apps/backend/src/tools/fsTools.ts</code>.
+        </p>
+        <p>
+          <strong>Skill</strong> — a folder with <code>SKILL.md</code>. YAML
+          says <em>when</em> to use it. Markdown says <em>how</em>. Optional
+          scripts and references sit beside it.
+        </p>
+        <p>
+          Skills tell the model which tools to use and in what order. They
+          do not replace the tool registry. Paste-every-skill into
+          <code>AGENT_SYSTEM_PROMPT</code> collapses that distinction and
+          burns the context window.
+        </p>
+      </div>
+
+      <h2>3. Progressive disclosure (the only load design)</h2>
+      <ol>
+        <li>
+          <strong>Discovery.</strong> At session start, inject only
+          <code>name</code> + <code>description</code> for each installed
+          skill (~100 tokens each, Anthropic). That is the discovery index.
+        </li>
+        <li>
+          <strong>Activation.</strong> User request matches a description.
+          Model reads the matching <code>SKILL.md</code>. In
+          <em>this</em> harness that is an ordinary
+          <code>read_file</code> on a path inside the workspace jail — no
+          new vendor “skill tool” required for the first version.
+        </li>
+        <li>
+          <strong>Execution.</strong> Follow the body. If it points at
+          <code>references/FORMS.md</code> or <code>scripts/extract.py</code>,
+          read or run that file then. Scripts stay on disk; only their
+          output should enter context.
+        </li>
+      </ol>
+      <p>
+        Paper Figure 2: median skill is 1,414 tokens; a 1% tail exceeds 9,253;
+        max in that crawl is 116,239. Loading every body up front does not
+        scale. Spec advice: keep the main file under 500 lines; split the
+        rest.
+      </p>
+
+      <h2>4. What your loop does today</h2>
+      <p>
+        <code>workspaceSystemPrompt</code> is static text plus three fs
+        tools. There is no skill index. That is the gap — not “missing
+        function-calling.” First integration is: scan skill dirs, put
+        metadata in the prompt, tell the model to <code>read_file</code>
+        the <code>SKILL.md</code> when the description matches. Do not
+        implement that this lesson.
+      </p>
+
+      <h2>5. Safety (from the paper, not folklore)</h2>
+      <p>
+        Same snapshot, LLM audit: 54% L0, 5% L1, 30% L2, 9% L3. Nearly two
+        fifths can touch private data or change state. Anthropic: treat
+        untrusted skills like installing software; a skill can steer
+        existing tools into harm. Your jail on workspace paths is necessary
+        and not sufficient if a skill says “exfiltrate then delete.”
+      </p>
+
+      <h2>Quiz</h2>
+      <div id="quiz1" class="card"></div>
+      <div id="quiz2" class="card"></div>
+      <div id="quiz3" class="card"></div>
+
+      <h2>After you finish</h2>
+      <p>
+        Next:
+        <a href="0007-write-a-skill-md.html">0007 — write a spec-valid SKILL.md</a>.
+        Ask the agent if any sentence here is muddy.
+      </p>
+
+      <footer>
+        Teacher is this agent. Follow-up questions welcome. No code until
+        you ask to build.
+      </footer>
+    </div>
+    <script src="../assets/quiz.js"></script>
+    <script>
+      mountQuiz(document.getElementById("quiz1"), {
+        question: "At session start, what belongs in the system prompt?",
+        options: [
+          { label: "Name and description only", correct: true },
+          { label: "Full SKILL.md plus scripts", correct: false },
+          { label: "Only the parent folder path", correct: false },
+          { label: "Every nested markdown file", correct: false },
+        ],
+        explain:
+          "Level 1 is YAML name + description (~100 tokens). Body and bundled files wait until activation.",
+      });
+      mountQuiz(document.getElementById("quiz2"), {
+        question: "In this repo, activation should be which action?",
+        options: [
+          { label: "read_file on that SKILL.md", correct: true },
+          { label: "one new tool per skill file", correct: false },
+          { label: "paste body into every turn", correct: false },
+          { label: "slash command with no tools", correct: false },
+        ],
+        explain:
+          "Claude Code reads SKILL.md from disk after a match. Your jail already has read_file. A skill is not a new function schema.",
+      });
+      mountQuiz(document.getElementById("quiz3"), {
+        question: "What does the marketplace paper mainly warn you about?",
+        options: [
+          { label: "Two fifths enable side effects", correct: true },
+          { label: "Marketplace skills stay at L0", correct: false },
+          { label: "Median skill exceeds 10k toks", correct: false },
+          { label: "Skills replace the tool layer", correct: false },
+        ],
+        explain:
+          "L1+L2+L3 ≈ 44% in their audit; median length is 1,414 tokens, not 10k. Skills wrap tools; they do not replace them.",
+      });
+    </script>
+  </body>
+</html>

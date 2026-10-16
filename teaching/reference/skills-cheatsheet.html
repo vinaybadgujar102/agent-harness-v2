@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cheatsheet — Agent Skills load</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Reference</p>
+      <h1>Three-level load</h1>
+      <p class="sub">Print this. Token numbers from Anthropic’s overview.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Level</th>
+            <th>When</th>
+            <th>What</th>
+            <th>This harness</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1 Metadata</td>
+            <td>Every session</td>
+            <td>~100 tokens: name + description</td>
+            <td>Append to system prompt</td>
+          </tr>
+          <tr>
+            <td>2 Instructions</td>
+            <td>Skill selected</td>
+            <td><code>SKILL.md</code> body (keep under ~5k)</td>
+            <td><code>read_file</code> that path</td>
+          </tr>
+          <tr>
+            <td>3 Resources</td>
+            <td>Body says so</td>
+            <td>scripts, references, assets</td>
+            <td><code>read_file</code> / later: run script</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Index snippet (this harness)</h2>
+      <pre>When a listed skill matches the user request, read_file its path.
+
+- implement-plan (.tuffy/skills/implement-plan/SKILL.md): Use this skill when…
+- explore-workspace (.tuffy/skills/explore-workspace/SKILL.md): List and read files…</pre>
+      <p>Parse frontmatter only at scan time. Do not concatenate Markdown bodies.</p>
+
+      <h2>Paper numbers (skills.sh, 2026-02-05)</h2>
+      <ul>
+        <li>40,285 listings; median 1,414 tokens; 99th percentile 9,253.</li>
+        <li>46.3% share a normalized name with another listing.</li>
+        <li>Risk audit: 54% L0, 5% L1, 30% L2, 9% L3.</li>
+      </ul>
+      <p>
+        Source:
+        <a href="https://arxiv.org/pdf/2602.08004">arXiv:2602.08004</a>.
+      </p>
+      <p>
+        <a href="../lessons/0006-skill-is-not-a-tool.html">Lesson 0006</a>
+        ·
+        <a href="./skills-glossary.html">Glossary</a>
+      </p>
+    </div>
+    <style>
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        margin: 1.25rem 0;
+      }
+      th,
+      td {
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        padding: 0.5rem 0.4rem;
+        vertical-align: top;
+      }
+    </style>
+  </body>
+</html>

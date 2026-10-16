@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 0005 — Multi-tool loop</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Lesson 0005</p>
+      <h1>When turn 2 is still <code>requires_action</code></h1>
+      <p class="sub">
+        Not every loop ends with assistant prose. Sometimes the model chains tools.
+      </p>
+
+      <nav class="toc">
+        <a href="0004-second-turn-after-function-result.html">Lesson 0004</a>
+        ·
+        <a href="../reference/harness-events.html">Harness events</a>
+        ·
+        <a href="../reference/harness-today.html">Batch loop today</a>
+      </nav>
+
+      <h2>One agent loop, many provider streams</h2>
+      <p>
+        Your batch agent already does
+        <code>while (true) { converse → tool? → continue }</code>. Streaming
+        does not change the count of tools — only how many
+        <strong>streams</strong> you open before the user sees a final answer.
+      </p>
+      <div class="card">
+        <pre>
+Stream 1 → tool_call_ready(A) → requires_action
+  execute A → function_result(A)
+
+Stream 2 → tool_call_ready(B) → requires_action   ← turn 2, still not "done"
+  execute B → function_result(B)
+
+Stream 3 → text_delta* → completed               ← finally message_complete
+        </pre>
+      </div>
+
+      <h2>What accumulates in <code>input</code></h2>
+      <p>Stateless history grows each round:</p>
+      <div class="card">
+        <pre>
+user_input
+function_result   (for call A)
+function_result   (for call B)
+…
+        </pre>
+      </div>
+      <p>
+        Note: your adapter today sends <code>user_input</code> and
+        <code>function_result</code> steps from <code>Conversation</code> turns.
+        The model inferred prior <code>function_call</code>s from context in the
+        interaction; if a provider ever drops that, you would also persist call
+        steps — not needed for your current Google spike pattern.
+      </p>
+
+      <h2>Harness events across the loop</h2>
+      <div class="card">
+        <pre>
+Per stream: turn_started → … → tool_call_ready OR message_complete
+            → turn_completed(requires_action | completed)
+
+Between streams (agent only):
+  tool_run_started → tool_run_finished
+        </pre>
+      </div>
+      <p>
+        UI pattern: show a timeline — “Running bash…”, “Running bash…”, then
+        stream assistant text. Each <code>requires_action</code> is a checkpoint,
+        not an error.
+      </p>
+
+      <h2>When models chain tools</h2>
+      <ul>
+        <li>First tool output is input to deciding the second command.</li>
+        <li>Plan-and-act prompts (“inspect, then fix”) often need 2+ calls.</li>
+        <li>Each stream may include a <code>thought</code> step before the next call.</li>
+      </ul>
+
+      <h2>Termination</h2>
+      <p>
+        Loop stops when a stream yields <code>message_complete</code> and
+        <code>turn_completed({ status: "completed" })</code> — no
+        <code>tool_call_ready</code> on that stream. Same stop rule as batch
+        <code>InteractionStep.message</code>.
+      </p>
+
+      <h2>Quiz</h2>
+      <div id="quiz1" class="card"></div>
+      <div id="quiz2" class="card"></div>
+      <div id="quiz3" class="card"></div>
+
+      <footer>
+        Ask the agent how many streams a “todo app” prompt might need — estimate
+        only, no coding.
+      </footer>
+    </div>
+    <script src="../assets/quiz.js"></script>
+    <script>
+      mountQuiz(document.getElementById("quiz1"), {
+        question: "Turn 2 ends requires_action. Turn 3 most likely?",
+        options: [
+          { label: "another tool_call_ready", correct: true },
+          { label: "always message_complete", correct: false },
+          { label: "always turn_started only", correct: false },
+          { label: "never requires_action", correct: false },
+        ],
+        explain:
+          "requires_action on turn 2 means another tool round is pending — same pattern as turn 1. Turn 3 might be another tool or finally assistant text.",
+      });
+
+      mountQuiz(document.getElementById("quiz2"), {
+        question: "How many interactions.create calls for two tools then text?",
+        options: [
+          { label: "three streamed creates", correct: true },
+          { label: "one create only", correct: false },
+          { label: "two creates always", correct: false },
+          { label: "zero creates needed", correct: false },
+        ],
+        explain:
+          "One stream per model turn: tool A, tool B, then answer = 3 streams in the common chain.",
+      });
+
+      mountQuiz(document.getElementById("quiz3"), {
+        question: "Agent loop stops when which harness event pair?",
+        options: [
+          { label: "message_complete completed", correct: true },
+          { label: "tool_call_ready requires", correct: false },
+          { label: "turn_started in_progress", correct: false },
+          { label: "text_delta thought only", correct: false },
+        ],
+        explain:
+          "tool_call_ready + requires_action continues the loop. Final stream delivers message_complete and turn_completed status completed.",
+      });
+    </script>
+  </body>
+</html>

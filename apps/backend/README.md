@@ -15,6 +15,8 @@ bun run tuffy -- --workspace /path/to/folder
 
 Link the bin (optional): `bun link` in this directory, then `tuffy-agent` from any folder.
 
+Agent Skills: on first run in a workspace, tuffy copies bundled defaults into `.tuffy/skills/` (`explore-workspace`, `edit-files`, `implement-plan`) if those files are missing. Add your own `SKILL.md` under `.tuffy/skills/<name>/` (`name` must match the YAML field). Existing files are not overwritten. The harness injects name, description, and path into the system prompt. The model loads a skill with `read_file` on that path.
+
 To run the SSE server (no workspace tools):
 
 ```bash

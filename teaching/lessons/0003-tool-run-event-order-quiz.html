@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 0003 — Tool run event order</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Lesson 0003 · Retrieval</p>
+      <h1>Event order on a tool run</h1>
+      <p class="sub">
+        From your <code>--tools</code> spike. No code — recall the timeline.
+      </p>
+
+      <nav class="toc">
+        <a href="0002-google-interactions-sse-walk.html">Lesson 0002</a>
+        ·
+        <a href="../reference/harness-events.html">Harness events</a>
+        ·
+        <a href="../learning-records/0002-google-sse-live-traces.md">LR-0002 traces</a>
+      </nav>
+
+      <h2>Anchor: your trace</h2>
+      <div class="card">
+        <pre>
+interaction.created → status in_progress
+step.start thought → step.stop
+step.start function_call → arguments_delta → step.stop
+interaction.completed → status requires_action
+        </pre>
+      </div>
+      <p>
+        Harness names:
+        <code>turn_started</code> → (thought ignored) →
+        <code>tool_call_ready</code> → <code>turn_completed</code> with
+        <code>requires_action</code>.
+      </p>
+
+      <h2>Quiz</h2>
+      <div id="quiz1" class="card"></div>
+      <div id="quiz2" class="card"></div>
+      <div id="quiz3" class="card"></div>
+
+      <h2>After you finish</h2>
+      <p>
+        Full agent story (still not implementation): after
+        <code>requires_action</code>, you send <code>function_result</code> in the
+        next interaction input — same as batch stateless history. Another
+        <code>turn_started</code> begins.
+      </p>
+
+      <footer>
+        Wrong answer? Re-read the anchor box, then ask the agent — no grading, only
+        learning.
+      </footer>
+    </div>
+    <script src="../assets/quiz.js"></script>
+    <script>
+      mountQuiz(document.getElementById("quiz1"), {
+        question:
+          "After function_call step.stop, interaction.completed status is?",
+        options: [
+          { label: "requires_action", correct: true },
+          { label: "completed", correct: false },
+          { label: "in_progress", correct: false },
+          { label: "cancelled", correct: false },
+        ],
+        explain:
+          "Tool pending: completed means model done waiting on you. Your spike showed requires_action, not completed.",
+      });
+
+      mountQuiz(document.getElementById("quiz2"), {
+        question: "Which harness event comes first on the tool path?",
+        options: [
+          { label: "tool_call_ready", correct: true },
+          { label: "turn_completed", correct: false },
+          { label: "message_complete", correct: false },
+          { label: "text_delta", correct: false },
+        ],
+        explain:
+          "Parse args at function_call step.stop → tool_call_ready. turn_completed follows on interaction.completed.",
+      });
+
+      mountQuiz(document.getElementById("quiz3"), {
+        question: "On tool path, which step type streams user-visible text?",
+        options: [
+          { label: "none in your trace", correct: true },
+          { label: "model_output step", correct: false },
+          { label: "function_call step", correct: false },
+          { label: "thought step only", correct: false },
+        ],
+        explain:
+          "Your run had thought then function_call — no model_output. UI shows tool progress, not assistant prose.",
+      });
+    </script>
+  </body>
+</html>

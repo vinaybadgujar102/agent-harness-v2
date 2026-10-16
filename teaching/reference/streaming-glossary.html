@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Streaming glossary — agent harness</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Reference</p>
+      <h1>Streaming glossary</h1>
+      <p class="sub">
+        Terms for this repo.
+        <a href="streaming-cheatsheet.html">Cheat sheet</a>,
+        <a href="harness-today.html">harness today</a>, lesson
+        <a href="../lessons/0001-prerequisites-before-streaming.html">0001</a>.
+      </p>
+
+      <h2>InteractionStep (today)</h2>
+      <p>
+        One completed model turn: either <code>tool_call_needed</code> (name, args,
+        call_id) or <code>message</code> (full text). Produced only after the
+        provider request finishes.
+      </p>
+
+      <h2>HarnessEvent</h2>
+      <p>
+        Typed union in <code>types.ts</code>. Full mapping:
+        <a href="harness-events.html">harness-events.html</a>.
+      </p>
+
+      <h2>Provider stream</h2>
+      <p>
+        SDK or HTTP SSE from Google, OpenAI, or Anthropic. You parse vendor
+        chunks; you do not expose raw chunks to UI unless debugging.
+      </p>
+
+      <h2>Step (Google Interactions)</h2>
+      <p>
+        One leg of an interaction: <code>model_output</code>,
+        <code>function_call</code>, <code>thought</code>, etc. Streaming
+        delivers each step as <code>step.start</code> →
+        <code>step.delta</code>* → <code>step.stop</code>.
+      </p>
+
+      <h2>arguments_delta</h2>
+      <p>
+        Partial JSON string for tool args on Google streams. Accumulate until
+        <code>step.stop</code>, then <code>JSON.parse</code> before
+        <code>tool.execute</code>.
+      </p>
+
+      <h2>Transport (product layer)</h2>
+      <p>
+        How events reach the user: CLI stdout, HTTP SSE (<code>Bun.serve</code>),
+        or WebSocket. Orthogonal to provider parsing.
+      </p>
+
+      <h2>Batch gate (tool execution)</h2>
+      <p>
+        Rule: never run registry tools until the tool call is complete and valid.
+        Streaming can show “calling bash…” early; execution waits at the gate.
+      </p>
+
+      <footer>
+        Primary source:
+        <a href="https://ai.google.dev/gemini-api/docs/streaming">Gemini streaming interactions</a>.
+        Ask the agent follow-up questions anytime.
+      </footer>
+    </div>
+  </body>
+</html>

@@ -4,21 +4,29 @@ Bun monorepo for a multi-provider tool-calling agent harness.
 
 ## Apps
 
-- **backend** — `LovableAiAgent` loop with Google / OpenAI / Claude providers and a shared tool registry.
+- **backend** — `LovableAiAgent` loop, Google TUI (`tuffy-agent`), jailed `read_file` / `write_file` / `list_dir`, and SSE (`POST /api/agent/stream`).
 
 ## Run
 
 ```sh
 bun install
-bun run --filter backend start
+cd apps/backend
+bun run tuffy init
+bun run tuffy -- --workspace /path/to/folder
 ```
 
-Set `GEMINI_API_KEY`, and optionally `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`, in the environment (Bun loads `.env` automatically).
+Workspace defaults to cwd. Creds: `~/.config/tuffy-agent/credentials`. Or set `GEMINI_API_KEY`.
+
+SSE server (no filesystem tools):
+
+```sh
+bun run --filter backend start
+```
 
 ## Packages
 
 - `@repo/eslint-config`, `@repo/typescript-config` — shared lint/TS config for future apps.
 
-## Notes
+## Learning (streaming / Interactions)
 
-- Design notes for the Gemini Interactions API: `learnings/writing_agent_loop_gemini.md`.
+Lessons, references, and notes live in [`teaching/`](./teaching/). Start at [`teaching/reference/streaming-cheatsheet.html`](./teaching/reference/streaming-cheatsheet.html).

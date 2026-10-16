@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 0009 — Activation is read_file</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Lesson 0009 · Mission: Agent Skills</p>
+      <h1>Activation is read_file</h1>
+      <p class="sub">
+        One win: you can name the first tool call after a description
+        matches, then the second call the body demands.
+      </p>
+
+      <nav class="toc">
+        <a href="0008-discovery-index.html">Lesson 0008</a>
+        ·
+        <a href="../reference/skills-cheatsheet.html">Cheatsheet</a>
+        ·
+        <a href="../reference/skills-glossary.html">Glossary</a>
+      </nav>
+
+      <h2>1. Read this first (primary source)</h2>
+      <p>
+        <a href="https://docs.anthropic.com/en/docs/agents-and-tools/agent-skills/overview"
+          >Anthropic: How Skills work</a
+        >
+        — after a request matches a description, Claude
+        <em>reads</em> <code>SKILL.md</code> from disk (they use bash
+        <code>cat</code>). Only then does the body enter context. Same
+        story in
+        <a href="https://agentskills.io/home">agentskills.io</a>
+        (activation) and paper Appendix A.2.
+      </p>
+      <p>
+        This harness has no bash skill loader and no extra function named
+        <code>activate_skill</code>. The equivalent call is
+        <code>read_file</code> on the path from the index.
+      </p>
+
+      <h2>2. Order (do not skip)</h2>
+      <ol>
+        <li>Index already in the system prompt (Level 1). Bodies are not.</li>
+        <li>User request. Model matches a <code>description</code>.</li>
+        <li>First tool: <code>read_file</code> that <code>SKILL.md</code>.</li>
+        <li>Harness returns file text as a tool result. Now the body is in the conversation.</li>
+        <li>Next tools follow the body: for your implement-plan skill, that is <code>read_file</code> on <code>.tuffy/plans/active.md</code> before edits.</li>
+      </ol>
+      <p>
+        Writing code before step 3 means the model is improvising, not
+        using the skill. Writing code after step 3 but before reading the
+        plan means it ignored <em>your</em> procedure.
+      </p>
+
+      <h2>3. Index for this drill</h2>
+      <pre>When a listed skill matches, read_file its path.
+- implement-plan (.tuffy/skills/implement-plan/SKILL.md): Use this skill when implementing tasks from the active project plan and tracking their progress.
+- explore-workspace (.tuffy/skills/explore-workspace/SKILL.md): List and read files to understand a repo. Use when the user asks to explore or summarize the workspace.</pre>
+
+      <h2>4. Drill — pick the next call</h2>
+      <p>Wrong buttons stay marked. Keep going until the green one.</p>
+      <div id="drill1" class="card"></div>
+      <div id="drill2" class="card"></div>
+
+      <h2>Quiz</h2>
+      <div id="quiz1" class="card"></div>
+      <div id="quiz2" class="card"></div>
+
+      <h2>After you finish</h2>
+      <p>
+        Next design slice: a tiny scanner that finds
+        <code>.tuffy/skills/*/SKILL.md</code>, parses frontmatter, drops
+        invalid names, builds this index. Still no patch unless you ask
+        to build. Unclear? Ask the agent.
+      </p>
+      <footer>Teacher is this agent. Follow-up questions welcome.</footer>
+    </div>
+    <script src="../assets/sequenceDrill.js"></script>
+    <script src="../assets/quiz.js"></script>
+    <script>
+      mountSequenceDrill(document.getElementById("drill1"), {
+        title: "User: implement the open plan items",
+        done: "Drill 1 done. Activation then follow the body.",
+        steps: [
+          {
+            question: "First tool call?",
+            options: [
+              {
+                label: "read_file implement-plan/SKILL.md",
+                correct: true,
+                explain:
+                  "Description matches implement-plan. Load the body. Path in full: .tuffy/skills/implement-plan/SKILL.md",
+              },
+              {
+                label: "write_file active.md immediately",
+                correct: false,
+                explain:
+                  "No body in context yet. Also you have not read the plan.",
+              },
+              {
+                label: "read_file explore-workspace file",
+                correct: false,
+                explain:
+                  "That skill is for explore/summarize, not implementing a plan.",
+              },
+              {
+                label: "list_dir .tuffy/skills/ folder",
+                correct: false,
+                explain:
+                  "Discovery already happened at session start via the index.",
+              },
+            ],
+          },
+          {
+            question:
+              "SKILL.md body is now in the tool result. Your skill says read the plan first. Next call?",
+            options: [
+              {
+                label: "read_file .tuffy/plans/active.md",
+                correct: true,
+                explain:
+                  "Procedure from the skill, not from the system prompt. Plan file next.",
+              },
+              {
+                label: "write_file src/app.ts blindly",
+                correct: false,
+                explain:
+                  "You still do not know which checkbox is next.",
+              },
+              {
+                label: "read_file pdf-library/SKILL.md",
+                correct: false,
+                explain: "Wrong skill. One activation is enough for this request.",
+              },
+              {
+                label: "reply done with no tool call",
+                correct: false,
+                explain: "The skill forbids marking work complete without doing it.",
+              },
+            ],
+          },
+        ],
+      });
+      mountSequenceDrill(document.getElementById("drill2"), {
+        title: "User: summarize what this repo contains",
+        done: "Drill 2 done. Different request, different SKILL.md.",
+        steps: [
+          {
+            question: "First tool call?",
+            options: [
+              {
+                label: "read_file explore-workspace SKILL",
+                correct: true,
+                explain:
+                  "Description match: explore or summarize the workspace. Path: .tuffy/skills/explore-workspace/SKILL.md",
+              },
+              {
+                label: "read_file implement-plan SKILL.md",
+                correct: false,
+                explain: "Implement-plan is for executing the active plan, not a summary.",
+              },
+              {
+                label: "write_file a new README now",
+                correct: false,
+                explain: "Summarize is a read. Do not write yet.",
+              },
+              {
+                label: "paste both SKILL.md bodies in",
+                correct: false,
+                explain: "That is dumping Level 2 at Level 1. One file, on match.",
+              },
+            ],
+          },
+        ],
+      });
+      mountQuiz(document.getElementById("quiz1"), {
+        question: "Activation in tuffy is which kind of thing?",
+        options: [
+          { label: "read_file one SKILL.md path", correct: true },
+          { label: "new schema for each skill", correct: false },
+          { label: "vendor skill_id container", correct: false },
+          { label: "concat bodies at startup", correct: false },
+        ],
+        explain:
+          "No activate_skill tool. No Claude API container. Concat is the anti-pattern from 0008.",
+      });
+      mountQuiz(document.getElementById("quiz2"), {
+        question: "When does the SKILL.md body enter context?",
+        options: [
+          { label: "After that read_file result", correct: true },
+          { label: "When the process starts up", correct: false },
+          { label: "Only inside YAML frontmatter", correct: false },
+          { label: "After skills.sh install count", correct: false },
+        ],
+        explain:
+          "Tool result text is conversation history. Frontmatter was already in the index. Marketplace installs do not load files.",
+      });
+    </script>
+  </body>
+</html>

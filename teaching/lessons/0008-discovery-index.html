@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 0008 — Discovery index</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Lesson 0008 · Mission: Agent Skills</p>
+      <h1>Discovery index at session start</h1>
+      <p class="sub">
+        One win: you write the system-prompt snippet that lists skills
+        without pasting their bodies.
+      </p>
+
+      <nav class="toc">
+        <a href="0007-write-a-skill-md.html">Lesson 0007</a>
+        ·
+        <a href="../reference/skills-cheatsheet.html">Cheatsheet</a>
+        ·
+        <a href="../reference/skills-glossary.html">Glossary</a>
+      </nav>
+
+      <h2>1. Read this first (primary source)</h2>
+      <p>
+        <a href="https://docs.anthropic.com/en/docs/agents-and-tools/agent-skills/overview"
+          >Anthropic: How Skills work</a
+        >
+        — Level 1 is YAML <code>name</code> + <code>description</code> in
+        the system prompt (~100 tokens per skill). The body stays on disk
+        until activation. Same three stages:
+        <a href="https://agentskills.io/home">agentskills.io</a>.
+      </p>
+      <p>
+        <a href="https://arxiv.org/pdf/2602.08004">The paper</a> Appendix A
+        calls this the skill index. Figure 2: median body 1,414 tokens;
+        dumping 20 skills is tens of thousands of tokens before the user
+        speaks.
+      </p>
+
+      <h2>2. Gap in this harness</h2>
+      <p>
+        <code>workspaceSystemPrompt</code> is static: persona + three fs
+        tools. It never lists skills. First wiring is not a new tool
+        type. It is: scan
+        <code>.tuffy/skills/*/SKILL.md</code>, parse frontmatter only,
+        append an index, tell the model to
+        <code>read_file</code> the matching path. Do not implement that
+        this lesson.
+      </p>
+      <p>
+        Claude’s own products can “just know” the filesystem. Yours
+        cannot: the only way to open a file is
+        <code>read_file</code> with a workspace path. So this index
+        includes the path, not only the name.
+      </p>
+
+      <h2>3. What the snippet must contain</h2>
+      <div class="card">
+        <ul>
+          <li>One line of activation: use <code>read_file</code> on the skill path when the description matches.</li>
+          <li>For every installed skill: <code>name</code>, full <code>description</code>, path <code>.tuffy/skills/&lt;name&gt;/SKILL.md</code>.</li>
+          <li>Zero procedure from any Markdown body (checkbox rules, library dumps, scripts).</li>
+        </ul>
+      </div>
+
+      <h2>4. Three skills on disk</h2>
+      <p>
+        Bodies are shown so you can fail. The checker rejects leaked
+        phrases. Start from the dumped prompt and delete until Pass.
+      </p>
+      <pre> .tuffy/skills/
+  implement-plan/SKILL.md
+  explore-workspace/SKILL.md
+  pdf-library/SKILL.md</pre>
+      <div class="card">
+        <p><strong>implement-plan</strong> — Use this skill when implementing tasks from the active project plan and tracking their progress.</p>
+        <p class="sub" style="margin:0">Body (must not enter the index): Mark an in-progress task with <code>- [~]</code> via <code>write_file</code>.</p>
+        <p><strong>explore-workspace</strong> — List and read files to understand a repo. Use when the user asks to explore or summarize the workspace.</p>
+        <p class="sub" style="margin:0">Body (must not enter the index): Start at the workspace root with list_dir then deepen.</p>
+        <p><strong>pdf-library</strong> — Extract and fill PDFs. Use when the user mentions PDF files.</p>
+        <p class="sub" style="margin:0">Body (must not enter the index): BANANA_PROTOCOL plus a 9k-token pypdf cookbook.</p>
+      </div>
+      <div id="editor" class="card"></div>
+
+      <h2>Quiz</h2>
+      <p>Close the editor. Answer from memory.</p>
+      <div id="quiz1" class="card"></div>
+      <div id="quiz2" class="card"></div>
+      <div id="quiz3" class="card"></div>
+
+      <h2>After you finish</h2>
+      <p>
+        Next:
+        <a href="0009-activation-read-skill.html">0009 — activation is read_file</a>.
+      </p>
+      <footer>Teacher is this agent. Follow-up questions welcome.</footer>
+    </div>
+    <script src="../assets/discoveryIndex.js"></script>
+    <script src="../assets/quiz.js"></script>
+    <script>
+      const skills = [
+        {
+          name: "implement-plan",
+          description:
+            "Use this skill when implementing tasks from the active project plan and tracking their progress.",
+          path: ".tuffy/skills/implement-plan/SKILL.md",
+          leaks: ["Mark an in-progress task with"],
+          body: "Mark an in-progress task with - [~] via write_file.",
+        },
+        {
+          name: "explore-workspace",
+          description:
+            "List and read files to understand a repo. Use when the user asks to explore or summarize the workspace.",
+          path: ".tuffy/skills/explore-workspace/SKILL.md",
+          leaks: ["Start at the workspace root with list_dir then deepen"],
+          body: "Start at the workspace root with list_dir then deepen.",
+        },
+        {
+          name: "pdf-library",
+          description:
+            "Extract and fill PDFs. Use when the user mentions PDF files.",
+          path: ".tuffy/skills/pdf-library/SKILL.md",
+          leaks: ["BANANA_PROTOCOL"],
+          body: "BANANA_PROTOCOL plus a 9k-token pypdf cookbook.",
+        },
+      ];
+      mountDiscoveryEditor(document.getElementById("editor"), {
+        skills: skills,
+        requireReadFile: true,
+        initial:
+          "Skills:\n\n" +
+          skills
+            .map(function (s) {
+              return (
+                s.name +
+                "\n" +
+                s.description +
+                "\n" +
+                s.path +
+                "\n" +
+                s.body
+              );
+            })
+            .join("\n\n"),
+      });
+      mountQuiz(document.getElementById("quiz1"), {
+        question: "At session start, the system prompt should list which set?",
+        options: [
+          { label: "name+path+description only", correct: true },
+          { label: "all SKILL.md bodies dumped", correct: false },
+          { label: "folder names with no blobs", correct: false },
+          { label: "scripts copied into prompt", correct: false },
+        ],
+        explain:
+          "Level 1 is discovery metadata. This harness also needs the path so read_file can open SKILL.md. Bodies wait for activation.",
+      });
+      mountQuiz(document.getElementById("quiz2"), {
+        question: "Why include the SKILL.md path in this harness index?",
+        options: [
+          { label: "read_file needs a file path", correct: true },
+          { label: "vendor SDKs inject the body", correct: false },
+          { label: "YAML name is a tool schema", correct: false },
+          { label: "Bash auto-discovers skills.", correct: false },
+        ],
+        explain:
+          "tuffy has no magic skill loader. Activation is an ordinary read_file. Google/Anthropic APIs do not inject your SKILL.md for you.",
+      });
+      mountQuiz(document.getElementById("quiz3"), {
+        question: "A 9,253-token skill body should enter context when?",
+        options: [
+          { label: "After the model selects it", correct: true },
+          { label: "At every new session start", correct: false },
+          { label: "Never, because scripts run", correct: false },
+          { label: "When skills.sh lists skill", correct: false },
+        ],
+        explain:
+          "Progressive disclosure: body loads on activation. Scripts may never enter context (only their output). Marketplace listing is unrelated.",
+      });
+    </script>
+  </body>
+</html>

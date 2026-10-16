@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 0004 — Second turn after function_result</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Lesson 0004</p>
+      <h1>Second turn after <code>function_result</code></h1>
+      <p class="sub">
+        Turn 1 ended with <code>requires_action</code>. Turn 2 is a new streamed
+        <code>interactions.create</code> with richer <code>input</code>.
+      </p>
+
+      <nav class="toc">
+        <a href="0003-tool-run-event-order-quiz.html">Lesson 0003</a>
+        ·
+        <a href="../reference/harness-events.html">Harness events</a>
+        ·
+        <a href="../learnings/writing_agent_loop_gemini.md">Gemini loop notes</a>
+      </nav>
+
+      <h2>What you add to <code>input</code></h2>
+      <p>
+        Same stateless rule as batch: keep full conversation as Interactions
+        steps. After executing the tool locally, append one step:
+      </p>
+      <div class="card">
+        <pre>
+{
+  type: "function_result",
+  name: "bash_tool",
+  call_id: "&lt;id from function_call step&gt;",
+  result: [{ type: "text", text: "&lt;JSON string of tool output&gt;" }]
+}
+        </pre>
+      </div>
+      <p>
+        Your harness already maps this from
+        <code>Conversation.addToolResult</code> via
+        <code>toGoogleSteps</code> — same payload for stream and non-stream.
+      </p>
+
+      <h2>Turn 1 vs turn 2 (harness events)</h2>
+      <div class="card">
+        <pre>
+Turn 1 (you ran --tools spike)
+  turn_started → tool_call_ready → turn_completed(requires_action)
+
+Agent executes bash locally → tool_run_finished
+
+Turn 2 (new stream, input includes user + function_result)
+  turn_started                    ← new interaction.id
+  (thought step may appear again)
+  model_output → text_delta*      ← usual assistant reply
+  message_complete
+  turn_completed(completed)       ← not requires_action if done
+        </pre>
+      </div>
+      <p>
+        Primary doc:
+        <a href="https://ai.google.dev/gemini-api/docs/interactions">Interactions API</a>
+        (function calling section). In-repo flow diagram: learning doc step 7–8.
+      </p>
+
+      <h2>Common turn-2 outcomes</h2>
+      <ul>
+        <li>
+          <strong>Final answer</strong> — <code>model_output</code> streams text;
+          <code>status: "completed"</code>.
+        </li>
+        <li>
+          <strong>Another tool</strong> — another <code>function_call</code> step;
+          <code>requires_action</code> again; loop continues.
+        </li>
+        <li>
+          <strong>Failure</strong> — <code>failed</code> / <code>error</code>
+          harness event; tool stderr often already in <code>function_result</code>.
+        </li>
+      </ul>
+
+      <h2>Two-turn story (one agent loop iteration)</h2>
+      <div class="card">
+        <pre>
+User: "Run bash_tool echo hello"
+  Stream A → tool_call_ready(echo …) → requires_action
+  Execute → stdout "hello\n"
+  Stream B input adds function_result with that stdout
+  Stream B → text_delta "The command printed hello…"
+           → completed
+        </pre>
+      </div>
+
+      <h2>Quiz</h2>
+      <div id="quiz1" class="card"></div>
+      <div id="quiz2" class="card"></div>
+      <div id="quiz3" class="card"></div>
+
+      <h2>Optional lab (no repo change required)</h2>
+      <p>
+        Mentally pair lesson 0003 output with a fake
+        <code>function_result</code> whose text is
+        <code>hello-from-stream</code>. Predict turn-2: at least one
+        <code>model_output</code> and <code>completed</code>. Run a second spike
+        later if you want live proof — ask the agent only when you want that
+        script.
+      </p>
+
+      <footer>
+        Ask the agent to compare turn-2 SSE to your text-only spike (lesson 0002).
+      </footer>
+    </div>
+    <script src="../assets/quiz.js"></script>
+    <script>
+      mountQuiz(document.getElementById("quiz1"), {
+        question: "Turn 2 starts with which API call pattern?",
+        options: [
+          { label: "new create with stream", correct: true },
+          { label: "resume same interaction", correct: false },
+          { label: "get interaction by id", correct: false },
+          { label: "patch function_result only", correct: false },
+        ],
+        explain:
+          "Stateless harness: new interactions.create (stream: true) with updated input array including function_result. Same as batch loop calling converse again.",
+      });
+
+      mountQuiz(document.getElementById("quiz2"), {
+        question: "Healthy final turn 2 interaction.completed status?",
+        options: [
+          { label: "completed", correct: true },
+          { label: "requires_action", correct: false },
+          { label: "in_progress", correct: false },
+          { label: "cancelled", correct: false },
+        ],
+        explain:
+          "requires_action means another tool call is pending. After a simple echo tool, turn 2 usually completes with assistant text and status completed.",
+      });
+
+      mountQuiz(document.getElementById("quiz3"), {
+        question: "function_result call_id must match what?",
+        options: [
+          { label: "function_call step id", correct: true },
+          { label: "interaction.created id", correct: false },
+          { label: "new random uuid", correct: false },
+          { label: "tool registry key", correct: false },
+        ],
+        explain:
+          "call_id ties result to the model's function_call step (your spike args referenced that call). Wrong id → model cannot link output.",
+      });
+    </script>
+  </body>
+</html>

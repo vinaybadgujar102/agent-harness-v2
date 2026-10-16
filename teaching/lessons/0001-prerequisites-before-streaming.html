@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 0001 — Prerequisites before streaming</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Lesson 0001 · Mission: streaming harness</p>
+      <h1>Prerequisites before you change code</h1>
+      <p class="sub">
+        One win: you can name the four decisions and the batch gate rule.
+      </p>
+
+      <nav class="toc">
+        <strong>Links:</strong>
+        <a href="../reference/harness-today.html">Harness today</a>,
+        <a href="../reference/streaming-glossary.html">Glossary</a>,
+        <a href="../MISSION.md">Mission</a>
+      </nav>
+
+      <h2>1. Read this first (primary source)</h2>
+      <p>
+        Google documents the streaming model your default provider will use:
+        <a href="https://ai.google.dev/gemini-api/docs/streaming">Streaming interactions</a>.
+        Skim event order: <code>interaction.created</code> → steps →
+        <code>interaction.completed</code>.
+      </p>
+
+      <h2>2. Four decisions (checklist)</h2>
+      <div class="card">
+        <p><strong>A. What you stream outward</strong></p>
+        <p>
+          Minimum for UX: assistant <code>text_delta</code>. Strongly consider:
+          <code>tool_call_started</code>, <code>tool_result</code>,
+          <code>turn_complete</code>. Usually skip streaming raw vendor JSON.
+        </p>
+        <p><strong>B. Internal contract</strong></p>
+        <p>
+          Replace “only <code>Promise&lt;InteractionStep&gt;</code>” with
+          something like <code>AsyncIterable&lt;HarnessEvent&gt;</code> per
+          <code>converse</code> call, still ending in a complete step for tools.
+          See <a href="../reference/streaming-glossary.html">glossary</a>.
+        </p>
+        <p><strong>C. Provider parity plan</strong></p>
+        <p>
+          Google: <code>interactions.create({ stream: true })</code> + SSE. OpenAI:
+          chat completion stream + tool fragment accumulator. Anthropic: message
+          stream events. Same harness events from three parsers.
+        </p>
+        <p><strong>D. Transport to the user</strong></p>
+        <p>
+          CLI can print deltas to stdout now. Product UI later: HTTP SSE via
+          <code>Bun.serve</code> is a common fit. Pick later; parsers should not
+          depend on transport.
+        </p>
+      </div>
+
+      <h2>3. Batch gate (non-negotiable)</h2>
+      <p>
+        Tool args may arrive as chunks (<code>arguments_delta</code> on Gemini).
+        Accumulate → parse → validate → then <code>tool.execute</code>. Streaming
+        changes visibility, not safety.
+      </p>
+
+      <h2>4. Concrete prerequisites in this repo</h2>
+      <ul>
+        <li>Agree harness event enum (5–8 variants).</li>
+        <li>Document mapping table: Google / OpenAI / Anthropic → harness events.</li>
+        <li>Decide: stream only final assistant message, or also status between tool rounds.</li>
+        <li>Spike Google stream in isolation (script, not refactor) to see thought steps.</li>
+        <li>Plan tests: golden event sequences from recorded SSE fixtures.</li>
+      </ul>
+
+      <h2>5. Retrieval practice</h2>
+      <div id="quiz1" class="card"></div>
+
+      <h2>6. What not to do yet</h2>
+      <p>
+        Do not rewrite all three providers at once. Do not attach SSE to HTTP before
+        the harness event model exists. Do not stream tool stdout until bash tool
+        semantics are defined.
+      </p>
+
+      <footer>
+        Stuck on a term? Open
+        <a href="../reference/streaming-glossary.html">streaming glossary</a>.
+        <strong>Ask the agent follow-up questions</strong> — it knows this repo and
+        can go deeper on any section.
+      </footer>
+    </div>
+    <script src="../assets/quiz.js"></script>
+    <script>
+      mountQuiz(document.getElementById("quiz1"), {
+        question: "When may the harness call tool.execute during streaming?",
+        options: [
+          { label: "After each streamed text token", correct: false },
+          { label: "After full tool call is ready", correct: true },
+          { label: "Before the model stream ends", correct: false },
+          { label: "Only when agent loop exits", correct: false },
+        ],
+        explain:
+          "Correct: accumulate tool-call fragments until the call is complete, parse JSON, then execute. Text deltas are for display only.",
+      });
+    </script>
+  </body>
+</html>

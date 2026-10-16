@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 0002 — Google Interactions SSE</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Lesson 0002</p>
+      <h1>Walk Google Interactions SSE</h1>
+      <p class="sub">
+        Same API you use in batch; add <code>stream: true</code> and consume events.
+      </p>
+
+      <nav class="toc">
+        <a href="0001-prerequisites-before-streaming.html">Lesson 0001</a>
+        ·
+        <a href="../reference/streaming-glossary.html">Glossary</a>
+        ·
+        Spike:
+        <code>apps/backend/spikes/google-interactions-sse-walkthrough.ts</code>
+      </nav>
+
+      <h2>Batch vs stream (one call site)</h2>
+      <p>
+        Today <code>GoogleAgentProvider</code> awaits one object with
+        <code>interaction.steps</code>. With streaming, <code>create</code> returns
+        an async iterable of SSE events. After the stream ends, non-stream
+        <code>steps</code> are the assembled picture of those events.
+      </p>
+
+      <h2>Event timeline</h2>
+      <div class="card">
+        <pre>
+interaction.created     → id, status in_progress
+  (step.start → step.delta* → step.stop)+   → per "step" (thought, model_output, function_call, …)
+interaction.completed   → usage, status completed
+        </pre>
+      </div>
+      <p>
+        Source:
+        <a href="https://ai.google.dev/gemini-api/docs/streaming">Streaming interactions</a>.
+      </p>
+
+      <h2>Step types you will see</h2>
+      <ul>
+        <li><code>thought</code> — may stream before answer; deltas often not user-facing.</li>
+        <li><code>model_output</code> — <code>step.delta</code> with <code>type: "text"</code>.</li>
+        <li><code>function_call</code> — name on <code>step.start</code>; args via <code>arguments_delta</code> strings.</li>
+      </ul>
+
+      <h2>Handler sketch (maps to spike)</h2>
+      <pre>
+for await (const event of stream) {
+  if (event.event_type === "step.delta" &amp;&amp; event.delta?.type === "text")
+    emit text to UI
+  if (event.event_type === "step.delta" &amp;&amp; event.delta?.type === "arguments_delta")
+    acc += event.delta.arguments   // batch gate: parse after step.stop
+  if (event.event_type === "step.start" &amp;&amp; event.step?.type === "function_call")
+    show "calling …"
+}
+      </pre>
+
+      <h2>Run it locally</h2>
+      <pre>
+cd apps/backend
+bun spikes/google-interactions-sse-walkthrough.ts
+bun spikes/google-interactions-sse-walkthrough.ts --tools
+      </pre>
+      <p>Needs <code>GEMINI_API_KEY</code> in env (Bun loads <code>.env</code>).</p>
+
+      <h2>Wire into harness later</h2>
+      <p>
+        Keep <code>toGoogleSteps(conversation)</code> as input. Replace blocking
+        <code>create</code> with streamed <code>create</code>. Fold events into
+        harness events; only after <code>function_call</code> step completes, return
+        <code>tool_call_needed</code> to the existing agent loop.
+      </p>
+
+      <div id="quiz1" class="card"></div>
+
+      <footer>
+        Ask the agent to compare live spike output to this timeline, or to draft the
+        harness event enum from these SSE types.
+      </footer>
+    </div>
+    <script src="../assets/quiz.js"></script>
+    <script>
+      mountQuiz(document.getElementById("quiz1"), {
+        question: "Where does assistant text appear on the Google SSE stream?",
+        options: [
+          { label: "On interaction.created payload", correct: false },
+          { label: "On step.delta type text", correct: true },
+          { label: "On interaction.completed only", correct: false },
+          { label: "On step.start for model", correct: false },
+        ],
+        explain:
+          "Text streams as step.delta with delta.type === \"text\", usually under a model_output step.",
+      });
+    </script>
+  </body>
+</html>

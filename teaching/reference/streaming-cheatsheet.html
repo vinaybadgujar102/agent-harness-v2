@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Streaming harness — cheat sheet</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+    <style>
+      .cheat-grid {
+        display: grid;
+        gap: 1rem;
+        margin: 1rem 0;
+      }
+      @media (min-width: 640px) {
+        .cheat-grid.two {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      table.cheat {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+      }
+      table.cheat th,
+      table.cheat td {
+        border: 1px solid var(--border);
+        padding: 0.45rem 0.55rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      table.cheat th {
+        background: #f4f4f5;
+        font-weight: 600;
+      }
+      .lesson-links {
+        font-size: 0.9rem;
+        line-height: 1.8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Reference · print-friendly</p>
+      <h1>Streaming harness cheat sheet</h1>
+      <p class="sub">
+        agent-harness-v2 · Google Interactions first ·
+        <a href="../MISSION.md">Mission</a>
+      </p>
+
+      <nav class="toc lesson-links">
+        <strong>Lessons:</strong>
+        <a href="../lessons/0001-prerequisites-before-streaming.html">0001 prerequisites</a>
+        ·
+        <a href="../lessons/0002-google-interactions-sse-walk.html">0002 Google SSE</a>
+        ·
+        <a href="../lessons/0003-tool-run-event-order-quiz.html">0003 tool order</a>
+        ·
+        <a href="../lessons/0004-second-turn-after-function-result.html">0004 second turn</a>
+        ·
+        <a href="../lessons/0005-multi-tool-loop.html">0005 multi-tool</a>
+      </nav>
+
+      <h2>Today vs target</h2>
+      <div class="cheat-grid two">
+        <div class="card">
+          <strong>Batch (now)</strong>
+          <pre>
+converse() → InteractionStep
+  tool_call_needed | message
+          </pre>
+        </div>
+        <div class="card">
+          <strong>Stream (target)</strong>
+          <pre>
+converseStream() → HarnessEvent*
+  UI sees deltas; loop still batch-gates tools
+          </pre>
+        </div>
+      </div>
+
+      <h2>Google SSE timeline</h2>
+      <pre>
+interaction.created
+  (step.start → step.delta* → step.stop)+
+interaction.completed  { status, usage }
+      </pre>
+      <p>
+        Docs:
+        <a href="https://ai.google.dev/gemini-api/docs/streaming">Streaming interactions</a>
+      </p>
+
+      <h2>Step types (ignore vs use)</h2>
+      <table class="cheat">
+        <thead>
+          <tr>
+            <th>Step / delta</th>
+            <th>Show user?</th>
+            <th>Harness event</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>thought</code>, <code>thought_signature</code></td>
+            <td>Usually no</td>
+            <td>— (drop)</td>
+          </tr>
+          <tr>
+            <td><code>model_output</code> + <code>text</code></td>
+            <td>Yes</td>
+            <td><code>text_delta</code></td>
+          </tr>
+          <tr>
+            <td><code>function_call</code> + <code>arguments_delta</code></td>
+            <td>Status optional</td>
+            <td>accumulate → <code>tool_call_ready</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2><code>interaction.completed.status</code></h2>
+      <table class="cheat">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Meaning</th>
+            <th>Agent</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>requires_action</code></td>
+            <td>Tool call emitted; waiting on you</td>
+            <td>Execute tool → append <code>function_result</code> → next stream</td>
+          </tr>
+          <tr>
+            <td><code>completed</code></td>
+            <td>Model turn finished</td>
+            <td>If text accumulated → return to user; stop loop</td>
+          </tr>
+          <tr>
+            <td><code>failed</code> / <code>cancelled</code></td>
+            <td>Error / abort</td>
+            <td><code>error</code> event; surface to user</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>HarnessEvent (quick list)</h2>
+      <p>
+        Detail:
+        <a href="harness-events.html">harness-events.html</a>
+      </p>
+      <table class="cheat">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Who emits</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>turn_started</code></td>
+            <td>Provider mapper</td>
+          </tr>
+          <tr>
+            <td><code>text_delta</code></td>
+            <td>Provider mapper</td>
+          </tr>
+          <tr>
+            <td><code>tool_call_ready</code></td>
+            <td>Provider mapper (after <code>step.stop</code>)</td>
+          </tr>
+          <tr>
+            <td><code>message_complete</code></td>
+            <td>Provider mapper</td>
+          </tr>
+          <tr>
+            <td><code>turn_completed</code></td>
+            <td>Provider mapper</td>
+          </tr>
+          <tr>
+            <td><code>tool_run_started</code> / <code>tool_run_finished</code></td>
+            <td>Agent loop</td>
+          </tr>
+          <tr>
+            <td><code>error</code></td>
+            <td>Either</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Batch gate (always)</h2>
+      <div class="card">
+        <pre>
+arguments_delta*  →  join  →  JSON.parse  →  tool_call_ready  →  execute
+        </pre>
+      </div>
+
+      <h2><code>function_result</code> shape</h2>
+      <pre>
+{
+  type: "function_result",
+  name: "&lt;tool name&gt;",
+  call_id: "&lt;function_call step id&gt;",
+  result: [{ type: "text", text: "&lt;JSON string&gt;" }]
+}
+      </pre>
+      <p>Same as <code>toGoogleSteps</code> tool_result mapping.</p>
+
+      <h2>Multi-tool loop</h2>
+      <pre>
+Stream₁ tool A → requires_action → run A
+Stream₂ tool B → requires_action → run B
+Stream₃ text   → completed      → done
+      </pre>
+      <p>One streamed <code>create</code> per model turn, not per token.</p>
+
+      <h2>Spike (local lab)</h2>
+      <pre>
+cd apps/backend
+bun spikes/google-interactions-sse-walkthrough.ts
+bun spikes/google-interactions-sse-walkthrough.ts --tools
+      </pre>
+      <p>Needs <code>GEMINI_API_KEY</code>.</p>
+
+      <h2>Batch loop file map</h2>
+      <p><a href="harness-today.html">harness-today.html</a></p>
+
+      <footer>
+        Ask the agent follow-up questions anytime. When you switch to build mode,
+        start from Google <code>converseStream</code> mapper + this sheet.
+      </footer>
+    </div>
+  </body>
+</html>

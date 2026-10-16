@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Harness event enum</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Reference</p>
+      <h1>HarnessEvent enum</h1>
+      <p class="sub">
+        Source of truth:
+        <code>apps/backend/src/abstraction/types.ts</code>
+      </p>
+
+      <nav class="toc">
+        <a href="streaming-glossary.html">Glossary</a>
+        ·
+        <a href="../lessons/0002-google-interactions-sse-walk.html">Lesson 0002</a>
+      </nav>
+
+      <h2>Variants</h2>
+      <div class="card">
+        <ul>
+          <li><code>turn_started</code> — stream open; optional provider interaction id.</li>
+          <li><code>text_delta</code> — assistant-visible token(s).</li>
+          <li><code>tool_call_ready</code> — args complete; safe to execute tool.</li>
+          <li><code>message_complete</code> — full assistant text for this provider turn.</li>
+          <li><code>turn_completed</code> — provider stream closed; status + usage.</li>
+          <li><code>tool_run_started</code> / <code>tool_run_finished</code> — agent loop, not Google SSE.</li>
+          <li><code>error</code> — parse failure, API error, aborted stream.</li>
+        </ul>
+      </div>
+
+      <h2>Who emits what</h2>
+      <pre>
+Google mapper     → turn_started, text_delta, tool_call_ready,
+                    message_complete, turn_completed, error
+Agent loop        → tool_run_*, forwards provider events
+HTTP/CLI adapter  → forwards all (optional filter thought)
+      </pre>
+
+      <h2>Google Interactions → HarnessEvent</h2>
+      <div class="card">
+        <pre>
+interaction.created           → turn_started { providerInteractionId }
+step.delta type=text          → text_delta
+step.start type=function_call → (optional UX only; wait for ready)
+step.stop after function_call → tool_call_ready (parse accumulated args)
+interaction.completed         → turn_completed { status, usage }
+  requires_action + tool_call_ready already sent → agent runs tool, new stream
+  completed + text accumulated  → message_complete then turn_completed
+      </pre>
+      </div>
+      <p>
+        Ignore <code>thought</code> steps and <code>thought_signature</code> deltas
+        unless you add a separate debug channel.
+      </p>
+
+      <h2>OpenAI (planned)</h2>
+      <pre>
+delta.content chunks          → text_delta
+tool_calls[].function args    → accumulate → tool_call_ready
+stream end                    → turn_completed
+      </pre>
+
+      <h2>Anthropic (planned)</h2>
+      <pre>
+content_block_delta text      → text_delta
+content_block_stop tool_use   → tool_call_ready
+message_delta end             → turn_completed / message_complete
+      </pre>
+
+      <h2>Agent loop consumption</h2>
+      <pre>
+for await (const e of provider.converseStream(conv)) {
+  forward e to subscriber
+  if (e.type === "tool_call_ready") {
+    emit tool_run_started → execute → tool_run_finished
+    break inner stream; append result; next converseStream
+  }
+  if (e.type === "message_complete") return e.text
+}
+      </pre>
+      <p>
+        Helpers:
+        <code>toolCallReadyToInteractionStep</code>,
+        <code>messageCompleteToInteractionStep</code> bridge batch-shaped code.
+      </p>
+
+      <h2>Your text-only trace (mapped)</h2>
+      <pre>
+turn_started
+(text_delta × N from model_output)
+message_complete (joined text)
+turn_completed { status: "completed", usage }
+      </pre>
+
+      <h2>Your --tools trace (mapped)</h2>
+      <pre>
+turn_started
+tool_call_ready { bash_tool, args }
+turn_completed { status: "requires_action", usage }
+→ agent tool_run_* → new turn_started …
+      </pre>
+
+      <footer>
+        Ask the agent to implement <code>converseStream</code> on
+        <code>GoogleAgentProvider</code> using this table.
+      </footer>
+    </div>
+  </body>
+</html>

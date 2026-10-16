@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Harness today — batch loop</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Reference</p>
+      <h1>Harness today (batch)</h1>
+      <p class="sub">Maps to <code>apps/backend/src/abstraction/</code>.</p>
+
+      <div class="card">
+        <pre>
+User prompt
+  → Conversation.start
+  → loop:
+       provider.converse()  // blocks until full response
+       if tool_call_needed → execute tool → addToolResult → loop
+       else → return final text
+        </pre>
+      </div>
+
+      <h2>Files to know</h2>
+      <ul>
+        <li><code>types.ts</code> — <code>LLMProvider</code>, <code>InteractionStep</code></li>
+        <li><code>agent.ts</code> — <code>LovableAiAgent.create</code> loop</li>
+        <li><code>providers/*.ts</code> — one blocking API call each</li>
+        <li><code>adapters/*.ts</code> — conversation → vendor message format</li>
+      </ul>
+
+      <h2>Why streaming touches all layers</h2>
+      <p>
+        <code>converse</code> must become “open stream, yield harness events, then
+        yield one logical <code>InteractionStep</code> (or equivalent) at step
+        boundaries.” <code>create</code> must forward text deltas while still
+        waiting at the batch gate before <code>tool.execute</code>.
+      </p>
+
+      <nav class="toc">
+        <a href="../lessons/0001-prerequisites-before-streaming.html">Lesson 0001</a>
+        ·
+        <a href="streaming-glossary.html">Glossary</a>
+      </nav>
+
+      <footer>
+        Read <a href="../MISSION.md">MISSION.md</a> in the repo for goals. Ask the agent to walk any file line-by-line.
+      </footer>
+    </div>
+  </body>
+</html>
