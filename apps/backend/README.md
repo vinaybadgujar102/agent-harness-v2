@@ -17,6 +17,8 @@ Link the bin (optional): `bun link` in this directory, then `tuffy-agent` from a
 
 Agent Skills: on first run in a workspace, tuffy copies bundled defaults into `.tuffy/skills/` (`explore-workspace`, `edit-files`, `implement-plan`) if those files are missing. Add your own `SKILL.md` under `.tuffy/skills/<name>/` (`name` must match the YAML field). Existing files are not overwritten. The harness injects name, description, and path into the system prompt. The model loads a skill with `read_file` on that path.
 
+Sub-agents: workspace modes also register `run_subagent`. The lead spawns an in-process nested `LovableAiAgent` (worker prompt + restricted FS tools). Workers cannot delegate again. Plan mode allows read-only workers only.
+
 To run the SSE server (no workspace tools):
 
 ```bash

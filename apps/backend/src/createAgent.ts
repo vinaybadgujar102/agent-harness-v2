@@ -1,4 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
+import type { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI as GoogleGenAIClient } from "@google/genai";
 import { LovableAiAgent } from "./abstraction/agent";
 import { GoogleAgentProvider } from "./abstraction/providers/google";
 import {
@@ -9,25 +10,51 @@ import {
 } from "./abstraction/systemPrompt";
 import { ensureDefaultSkills, loadSkills } from "./skills/skillStore";
 import { createFsTools } from "./tools/fsTools";
+import {
+  createRunSubagentTool,
+  type HarnessMode,
+} from "./tools/subagentTool";
+import type { Tool } from "./tools/toolClass";
 
-export type HarnessMode = "agent" | "plan" | "implement";
+export type { HarnessMode };
 
 export type CreateAgentOptions = {
   apiKey?: string;
   workspaceRoot?: string;
 };
 
+const harnessClients = new WeakMap<LovableAiAgent, GoogleGenAI>();
+
+export function geminiClientForAgent(
+  agent: LovableAiAgent,
+): GoogleGenAI | undefined {
+  return harnessClients.get(agent);
+}
+
 function skillsFor(workspaceRoot: string) {
   ensureDefaultSkills(workspaceRoot);
   return loadSkills(workspaceRoot);
 }
 
-export function modeConfig(workspaceRoot: string, mode: HarnessMode) {
-  const skills = skillsFor(workspaceRoot);
-  const tools =
+export function workspaceTools(
+  workspaceRoot: string,
+  mode: HarnessMode,
+  client: GoogleGenAI,
+): Tool[] {
+  const fs =
     mode === "plan"
       ? createFsTools(workspaceRoot, { writable: false })
       : createFsTools(workspaceRoot);
+  return [...fs, createRunSubagentTool({ client, workspaceRoot, mode })];
+}
+
+export function modeConfig(
+  workspaceRoot: string,
+  mode: HarnessMode,
+  client: GoogleGenAI,
+) {
+  const skills = skillsFor(workspaceRoot);
+  const tools = workspaceTools(workspaceRoot, mode, client);
   const systemPrompt =
     mode === "plan"
       ? planModeSystemPrompt(workspaceRoot, skills)
@@ -39,9 +66,9 @@ export function modeConfig(workspaceRoot: string, mode: HarnessMode) {
 
 export function createAgent(options: CreateAgentOptions = {}) {
   const apiKey = options.apiKey ?? process.env.GEMINI_API_KEY;
-  const client = new GoogleGenAI({ apiKey });
+  const client = new GoogleGenAIClient({ apiKey });
   const tools = options.workspaceRoot
-    ? createFsTools(options.workspaceRoot)
+    ? workspaceTools(options.workspaceRoot, "agent", client)
     : [];
   const skills = options.workspaceRoot
     ? skillsFor(options.workspaceRoot)
@@ -50,8 +77,10 @@ export function createAgent(options: CreateAgentOptions = {}) {
     ? workspaceSystemPrompt(options.workspaceRoot, skills)
     : AGENT_SYSTEM_PROMPT;
 
-  return new LovableAiAgent(
+  const agent = new LovableAiAgent(
     new GoogleAgentProvider(client, { systemPrompt, tools }),
     { tools },
   );
+  harnessClients.set(agent, client);
+  return agent;
 }

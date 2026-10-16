@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 0010 — Orchestrator & sub-agents</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Lesson 0010 · Mission: Orchestrator + sub-agents</p>
+      <h1>Orchestrator and sub-agents in tuffy</h1>
+      <p class="sub">
+        One win: you can draw lead vs worker, say why tuffy needs a
+        delegation tool, and list three guardrails before we ship code.
+      </p>
+
+      <nav class="toc">
+        <a href="0009-activation-read-skill.html">Lesson 0009 (skills)</a>
+        ·
+        <a href="../reference/orchestrator-cheatsheet.html">Orchestrator cheatsheet</a>
+        ·
+        <a href="../reference/skills-glossary.html">Skills glossary</a>
+      </nav>
+
+      <h2>1. Read this first (primary source)</h2>
+      <p>
+        <a href="https://www.anthropic.com/engineering/multi-agent-research-system"
+          >Anthropic: multi-agent research system</a
+        >
+        — lead agent plans and delegates; workers run in parallel with
+        isolated tasks; lead synthesizes. Same family as
+        <a href="https://docs.langchain.com/oss/python/langchain/multi-agent/subagents"
+          >LangChain subagents (supervisor + tools)</a
+        >.
+      </p>
+
+      <h2>2. Vocabulary</h2>
+      <dl>
+        <dt>Lead (orchestrator)</dt>
+        <dd>
+          The agent the user talks to. Plans, calls tools, may spawn workers,
+          merges their summaries into one answer.
+        </dd>
+        <dt>Sub-agent (worker)</dt>
+        <dd>
+          Short-lived nested run: own system prompt, often fewer tools, returns
+          a bounded result to the lead via a tool result — not direct chat.
+        </dd>
+        <dt>Agents-as-tools</dt>
+        <dd>
+          Lead stays owner of the reply; workers are invoked like
+          <code>read_file</code>, not a handoff that replaces the lead.
+        </dd>
+      </dl>
+
+      <h2>3. Your harness today</h2>
+      <pre>User → LovableAiAgent.createStream / create
+         → GoogleAgentProvider (one conversation)
+         → tool loop: read_file | write_file | list_dir</pre>
+      <p>
+        The loop in <code>apps/backend/src/abstraction/agent.ts</code> already
+        orchestrates <em>tools</em>. It does not yet orchestrate
+        <em>other agents</em>. The system prompt already nudges parallel
+        subagents when a delegation tool exists — but
+        <code>createAgent</code> never registers one.
+      </p>
+      <p>
+        <strong>Skills</strong> (lesson 0009) are procedure files the lead
+        loads with <code>read_file</code>. They are not sub-agents. A worker
+        might <em>follow</em> a skill; the skill does not replace the worker
+        runtime.
+      </p>
+
+      <h2>4. Target shape (design, not shipped)</h2>
+      <pre>Lead loop
+  ├─ read_file / write_file / list_dir  (unchanged)
+  └─ run_subagent({ role, brief, toolProfile })
+        └─ new LovableAiAgent (worker prompt, restricted tools)
+        └─ tool result → { summary, status }  (not full worker transcript)</pre>
+      <p>
+        Parent conversation keeps user context small — same idea as
+        <a href="https://www.inngest.com/docs/durable-execution/durable-agents/sub-agent-delegation"
+          >Inngest sub-agent delegation</a
+        >: parent sees summary only.
+      </p>
+
+      <h2>5. When to delegate (drill)</h2>
+      <p>Wrong buttons stay marked. Pick what the lead should do.</p>
+      <div id="drill1" class="card"></div>
+
+      <h2>6. Guardrails quiz</h2>
+      <div id="quiz1" class="card"></div>
+      <div id="quiz2" class="card"></div>
+
+      <h2>7. Implementation checklist (for later)</h2>
+      <ol>
+        <li>
+          Add <code>run_subagent</code> with Zod schema via
+          <code>defineTool</code> (<code>toolClass.ts</code>).
+        </li>
+        <li>
+          Worker factory: clone provider options, worker system prompt, tool
+          subset (explore = read-only FS).
+        </li>
+        <li>Strip delegation from worker tool list; max depth = 1.</li>
+        <li>
+          Stream events: optional prefix (<code>subagent_*</code>) or nest under
+          <code>tool_run_*</code> — pick one for TUI clarity.
+        </li>
+        <li>Tests: recursion blocked; parent receives summary; worker cannot write when read-only profile.</li>
+      </ol>
+
+      <h2>After you finish</h2>
+      <p>
+        Tell the agent if you want lesson 0011 (worker brief template + roles)
+        or switch to build mode for <code>run_subagent</code>. Unclear? Ask
+        the agent — it knows this repo.
+      </p>
+      <footer>Teacher is this agent. Follow-up questions welcome.</footer>
+    </div>
+    <script src="../assets/sequenceDrill.js"></script>
+    <script src="../assets/quiz.js"></script>
+    <script>
+      mountSequenceDrill(document.getElementById("drill1"), {
+        title: "User: refactor auth and update all call sites in parallel",
+        done: "Drill done. Parallel independent slices → subagents; serial glue → lead.",
+        steps: [
+          {
+            question: "First move for the lead?",
+            options: [
+              {
+                label: "Spawn two workers with scoped briefs",
+                correct: true,
+                explain:
+                  "Independent areas (auth module vs call sites) fit parallel workers with non-overlapping files.",
+              },
+              {
+                label: "One worker edits every file alone",
+                correct: false,
+                explain:
+                  "One giant worker loses isolation and often conflicts on shared files.",
+              },
+              {
+                label: "Skip tools; answer from memory only",
+                correct: false,
+                explain:
+                  "Harness requires tool results for file truth; inventing edits is forbidden.",
+              },
+              {
+                label: "Hand chat to a specialist forever",
+                correct: false,
+                explain:
+                  "Handoff pattern — not tuffy's agents-as-tools design.",
+              },
+            ],
+          },
+          {
+            question: "Worker A finishes. What enters the lead conversation?",
+            options: [
+              {
+                label: "Structured summary as tool result",
+                correct: true,
+                explain:
+                  "Parent loop adds one tool result — not the worker's full message history.",
+              },
+              {
+                label: "Full worker transcript appended",
+                correct: false,
+                explain:
+                  "Bloats lead context; defeats isolation.",
+              },
+              {
+                label: "Worker posts directly to the user",
+                correct: false,
+                explain:
+                  "Workers do not own the user channel in agents-as-tools.",
+              },
+              {
+                label: "Nothing until all workers finish",
+                correct: false,
+                explain:
+                  "Each completed delegate returns when done; lead can merge incrementally.",
+              },
+            ],
+          },
+        ],
+      });
+
+      mountQuiz(document.getElementById("quiz1"), {
+        question:
+          "Why must worker tool lists omit the delegation tool itself?",
+        options: [
+          {
+            label: "Stops unbounded nested agent recursion chains",
+            correct: true,
+          },
+          {
+            label: "Makes worker models run faster on disk tools",
+            correct: false,
+          },
+          {
+            label: "Required because Google API rejects nested calls",
+            correct: false,
+          },
+          {
+            label: "So workers cannot read files outside workspace",
+            correct: false,
+          },
+        ],
+        explain:
+          "Without stripping delegate, worker can spawn worker → runaway cost and races. Workspace jail is separate (path checks).",
+      });
+
+      mountQuiz(document.getElementById("quiz2"), {
+        question: "Which pattern fits tuffy's single-user TUI product best?",
+        options: [
+          {
+            label: "Lead keeps reply; workers run as tools",
+            correct: true,
+          },
+          {
+            label: "Handoff: worker replaces lead in the UI",
+            correct: false,
+          },
+          {
+            label: "User picks a new agent thread per subtask",
+            correct: false,
+          },
+          {
+            label: "Only one model call; no tool loop ever",
+            correct: false,
+          },
+        ],
+        explain:
+          "Agents-as-tools matches existing LovableAiAgent loop and streaming events. Handoffs need mode/thread UX you do not have yet.",
+      });
+    </script>
+  </body>
+</html>

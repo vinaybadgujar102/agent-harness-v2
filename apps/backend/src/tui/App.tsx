@@ -2,7 +2,7 @@ import { Box, Text, useApp, useInput } from "ink";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LovableAiAgent } from "../abstraction/agent";
 import type { HarnessMode } from "../createAgent";
-import { modeConfig } from "../createAgent";
+import { geminiClientForAgent, modeConfig } from "../createAgent";
 import type { HarnessEvent } from "../abstraction/types";
 import {
   implementationUserPrompt,
@@ -63,7 +63,11 @@ export function App({
   };
 
   const applyHarnessMode = (mode: HarnessMode) => {
-    agent.setMode(modeConfig(workspace, mode));
+    const client = geminiClientForAgent(agent);
+    if (!client) {
+      throw new Error("missing Gemini client on agent");
+    }
+    agent.setMode(modeConfig(workspace, mode, client));
     const nextUi: UiMode = mode === "plan" ? "plan" : "agent";
     uiModeRef.current = nextUi;
     setUiMode(nextUi);

@@ -22,10 +22,24 @@
 - [Anthropic Skills cookbook](https://github.com/anthropics/skills)
   Authoring examples. Use for: what a good `SKILL.md` body looks like.
 
+## Orchestrator + sub-agents
+
+- [Anthropic: multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system)
+  Lead / worker decomposition, parallel subagents, synthesis. Use for: why delegate and what a good brief contains.
+- [OpenAI: Orchestration and handoffs](https://developers.openai.com/api/docs/guides/agents/orchestration)
+  Agents-as-tools vs handoffs. Use for: tuffy should keep the lead on the user reply.
+- [LangChain: Subagents](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents)
+  Supervisor invokes workers as tools; context isolation. Use for: tool-shaped delegation API mental model.
+- [Inngest: Sub-agent delegation](https://www.inngest.com/docs/durable-execution/durable-agents/sub-agent-delegation)
+  Sync delegate, summary-only parent context, recursion guards. Use for: implementation guardrails (not their runtime).
+- In-repo: `apps/backend/src/abstraction/agent.ts`, `apps/backend/src/abstraction/systemPrompt.ts`, `apps/backend/src/createAgent.ts`
+  Single agent loop; prompt mentions subagents; no delegate tool yet.
+
 ## Gaps
 
 - No first-party Google Interactions doc for “Agent Skills”; this harness must implement the open format itself.
 - Paper adoption numbers are marketplace installs, not verified in-agent executions (Limitation section).
+- No `run_subagent` (or similar) tool in harness yet — lesson 0010 is design-first.
 
 ## Streaming (paused track)
 

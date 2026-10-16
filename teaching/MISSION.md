@@ -17,7 +17,27 @@ Ship a harness that loads reusable Agent Skills (`SKILL.md` modules) the same wa
 - Teach and design before large refactors (same preference as the streaming track).
 - Primary source of format truth: Agent Skills spec + Anthropic docs. The arXiv paper is ecosystem context, not an implementation spec.
 
-## Out of scope
+## Parallel track: Orchestrator + sub-agents (2026-10-16)
+
+User asked to **add** orchestrator / sub-agent pattern to the product, not only skills.
+
+### Why
+
+One `LovableAiAgent` loop works for bounded tasks. Heavy work (parallel explore, independent file slices, research vs implement) needs a **lead** that delegates and **workers** with isolated context. Prompt text already mentions subagents; the harness has no delegation tool yet.
+
+### Success looks like
+
+- Can name **agents-as-tools** vs **handoff** and pick agents-as-tools for tuffy (lead keeps user reply).
+- Can map lead → `LovableAiAgent`, worker → nested run via a `delegate_*` tool, parent sees summary only.
+- Can list guardrails: no delegate tool on workers, depth cap, bounded brief (goal, inputs, done, tools).
+- Can sketch where the tool plugs into `executeTool` without forking the event stream model.
+
+### Out of scope (this track)
+
+- Multi-tenant agent fleets, arbitrary model roster UI, or Cursor-parity Task tool on day one.
+- Handoff-style “specialist owns the chat” unless product explicitly wants mode switch.
+
+## Out of scope (skills track)
 
 - Cloning skills.sh / OpenClaw or crawling 40k listings.
 - Claude API container Skills (`container` + code-execution tool) as the first design.

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cheatsheet — Orchestrator & sub-agents</title>
+    <link rel="stylesheet" href="../assets/teach.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="mission-tag">Reference</p>
+      <h1>Orchestrator pattern (tuffy)</h1>
+      <p class="sub">Print this. Names match lesson 0010.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Job</th>
+            <th>In agent-harness-v2 today</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Lead (orchestrator)</td>
+            <td>Plan, delegate, merge, answer user</td>
+            <td><code>LovableAiAgent</code> + full tool set</td>
+          </tr>
+          <tr>
+            <td>Sub-agent (worker)</td>
+            <td>One bounded task; return summary</td>
+            <td><em>Not implemented</em> — prompt only</td>
+          </tr>
+          <tr>
+            <td>Delegation tool</td>
+            <td>Spawn worker; parent gets tool result</td>
+            <td>Future: e.g. <code>run_subagent</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Agents-as-tools (pick this for tuffy)</h2>
+      <p>
+        Lead keeps the conversation. Workers run inside a tool call. User never
+        talks to workers directly.
+        <a href="https://developers.openai.com/api/docs/guides/agents/orchestration"
+          >OpenAI: orchestration</a
+        >,
+        <a href="https://docs.langchain.com/oss/python/langchain/multi-agent/subagents"
+          >LangChain: subagents</a
+        >.
+      </p>
+
+      <h2>Worker brief (minimum)</h2>
+      <ol>
+        <li>Goal — one sentence outcome</li>
+        <li>Inputs — paths, constraints, what not to touch</li>
+        <li>Tools — subset (often read-only explore)</li>
+        <li>Done — verifiable finish line</li>
+        <li>Return — structured summary for merge, not raw log</li>
+      </ol>
+
+      <h2>Guardrails</h2>
+      <ul>
+        <li>Workers: no delegation tool (break recursion)</li>
+        <li>Hard max depth (e.g. lead → worker only)</li>
+        <li>Parallel workers only when tasks are independent</li>
+        <li>Cap iterations / tokens per worker</li>
+      </ul>
+
+      <h2>Where code will land</h2>
+      <pre>createAgent() → tools map
+LovableAiAgent.executeTool() → run_subagent spawns child agent
+Child: new Conversation, worker system prompt, restricted tools
+Tool result: { summary, artifacts?, status }</pre>
+
+      <nav class="toc">
+        <a href="../lessons/0010-orchestrator-subagent.html">Lesson 0010</a>
+        ·
+        <a href="skills-cheatsheet.html">Skills cheatsheet</a>
+      </nav>
+      <footer>Teacher is this agent. Follow-up questions welcome.</footer>
+    </div>
+  </body>
+</html>

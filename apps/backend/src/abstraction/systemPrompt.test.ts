@@ -1,8 +1,14 @@
 import { expect, test } from "bun:test";
 import {
+  AGENT_SYSTEM_PROMPT,
   implementModeSystemPrompt,
   workspaceSystemPrompt,
 } from "./systemPrompt";
+
+test("base prompt requires reasoning before steps and conditional subagents", () => {
+  expect(AGENT_SYSTEM_PROMPT).toContain("Chain-of-thought");
+  expect(AGENT_SYSTEM_PROMPT).toContain("subagent");
+});
 
 test("workspace prompt appends skill index once and omits bodies", () => {
   const prompt = workspaceSystemPrompt("/ws", [
@@ -16,6 +22,7 @@ test("workspace prompt appends skill index once and omits bodies", () => {
   expect(prompt).toContain("Use when implementing the active plan.");
   expect(prompt.match(/implement-plan/g)?.length).toBeGreaterThanOrEqual(1);
   expect(prompt).not.toContain("SECRET_BODY");
+  expect(prompt).toContain("run_subagent");
 });
 
 test("workspace prompt has no skill section when none installed", () => {
