@@ -17,6 +17,7 @@ test("filter slash commands by prefix", () => {
     "/quit",
     "/new",
     "/clear",
+    "/history",
     "/plan",
     "/agent",
     "/implement",
@@ -30,6 +31,7 @@ test("filter slash commands by prefix", () => {
 test("new chat slash commands", () => {
   expect(slashCommandForInput("/new")?.action).toBe("new-chat");
   expect(slashCommandForInput("/clear")?.action).toBe("new-chat");
+  expect(slashCommandForInput("/history")?.action).toBe("history");
 });
 
 test("plan mode slash commands", () => {

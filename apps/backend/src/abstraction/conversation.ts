@@ -35,6 +35,10 @@ export class Conversation {
     this.turns.push({ type: "tool_result", toolName, callId, result });
   }
 
+  replace(turns: ConversationTurn[]) {
+    this.turns = [...turns];
+  }
+
   getTurns(): ConversationTurn[] {
     return this.turns;
   }

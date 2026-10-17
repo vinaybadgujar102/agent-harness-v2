@@ -17,3 +17,11 @@ test("clear empties history", () => {
   c.clear();
   expect(c.getTurns()).toEqual([]);
 });
+
+test("replace copies turns", () => {
+  const c = new Conversation();
+  const turns = [{ type: "user" as const, content: "a" }];
+  c.replace(turns);
+  turns.push({ type: "user", content: "b" });
+  expect(c.getTurns()).toEqual([{ type: "user", content: "a" }]);
+});

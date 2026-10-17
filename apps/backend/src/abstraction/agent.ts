@@ -1,5 +1,5 @@
 import type { LlmProviderOptions, Tool } from "../tools/toolClass";
-import { Conversation } from "./conversation";
+import { Conversation, type ConversationTurn } from "./conversation";
 import type {
   ConverseStreamOptions,
   HarnessEvent,
@@ -70,6 +70,10 @@ export class LovableAiAgent {
 
   getTurns() {
     return this.conversation.getTurns();
+  }
+
+  replaceTurns(turns: ConversationTurn[]) {
+    this.conversation.replace(turns);
   }
 
   private stuckLimit(stuck: Stuck): string | null {

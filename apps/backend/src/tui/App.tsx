@@ -5,10 +5,20 @@ import type { HarnessMode } from "../createAgent";
 import { geminiClientForAgent, modeConfig } from "../createAgent";
 import type { HarnessEvent } from "../abstraction/types";
 import {
+  ConversationStore,
+  type ConversationListItem,
+} from "../conversation/conversationStore";
+import {
   implementationUserPrompt,
   loadActivePlan,
   saveActivePlan,
 } from "../plan/planStore";
+import {
+  previewToolResult,
+  relativeTime,
+  transcriptLinesFromTurns,
+  visibleWindow,
+} from "./historyUi";
 import {
   filterSlashCommands,
   slashCommandForInput,
@@ -40,20 +50,39 @@ export function App({
   const [status, setStatus] = useState("idle");
   const [uiMode, setUiMode] = useState<UiMode>("agent");
   const [cursorOn, setCursorOn] = useState(true);
+  const [view, setView] = useState<"chat" | "history">("chat");
+  const [historyItems, setHistoryItems] = useState<ConversationListItem[]>([]);
+  const [historyPick, setHistoryPick] = useState(0);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const uiModeRef = useRef<UiMode>("agent");
+  const harnessModeRef = useRef<HarnessMode>("agent");
+  const sessionIdRef = useRef<string | null>(null);
   const nextId = useRef(1);
   const runningRef = useRef(false);
   const toolRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const startedFirst = useRef(false);
   const assistantBuf = useRef("");
+  const store = useMemo(() => new ConversationStore(workspace), [workspace]);
 
   const push = (kind: Line["kind"], text: string) => {
     const id = nextId.current++;
     setLines((prev) => [...prev, { id, kind, text }]);
   };
 
+  const persistCurrent = () => {
+    const turns = agent.getTurns();
+    if (turns.length === 0) return;
+    let id = sessionIdRef.current;
+    if (!id) {
+      id = crypto.randomUUID();
+      sessionIdRef.current = id;
+    }
+    store.save({ id, mode: harnessModeRef.current, turns });
+  };
+
   const startNewChat = () => {
+    sessionIdRef.current = null;
     agent.clearConversation();
     setLines([]);
     setThinking("");
@@ -68,9 +97,41 @@ export function App({
       throw new Error("missing Gemini client on agent");
     }
     agent.setMode(modeConfig(workspace, mode, client));
+    harnessModeRef.current = mode;
     const nextUi: UiMode = mode === "plan" ? "plan" : "agent";
     uiModeRef.current = nextUi;
     setUiMode(nextUi);
+  };
+
+  const openHistory = () => {
+    setDraft("");
+    setConfirmDelete(false);
+    setHistoryItems(store.list());
+    setHistoryPick(0);
+    setView("history");
+  };
+
+  const loadHistoryItem = (item: ConversationListItem) => {
+    const record = store.load(item.id);
+    if (!record) {
+      setView("chat");
+      setConfirmDelete(false);
+      push("error", "conversation missing");
+      return;
+    }
+    applyHarnessMode(record.mode);
+    agent.replaceTurns(record.turns);
+    sessionIdRef.current = record.id;
+    const rebuilt = transcriptLinesFromTurns(record.turns);
+    nextId.current = rebuilt.length + 1;
+    setLines(
+      rebuilt.map((line, i) => ({ id: i + 1, kind: line.kind, text: line.text })),
+    );
+    setThinking("");
+    assistantBuf.current = "";
+    setStatus("idle");
+    setConfirmDelete(false);
+    setView("chat");
   };
 
   const submit = (
@@ -88,15 +149,19 @@ export function App({
       startNewChat();
       return;
     }
+    if (slash?.action === "history") {
+      openHistory();
+      return;
+    }
     if (slash?.action === "plan-mode") {
       applyHarnessMode("plan");
-      startNewChat();
+      persistCurrent();
       push("tool", "plan mode — no file edits; reply saved to .tuffy/plans/active.md");
       return;
     }
     if (slash?.action === "agent-mode") {
       applyHarnessMode("agent");
-      startNewChat();
+      persistCurrent();
       push("tool", "agent mode — filesystem tools enabled");
       return;
     }
@@ -149,6 +214,7 @@ export function App({
             }
           }
         }
+        persistCurrent();
         runningRef.current = false;
         toolRef.current = false;
         abortRef.current = null;
@@ -195,9 +261,7 @@ export function App({
       case "tool_run_finished":
         toolRef.current = false;
         setStatus("thinking");
-        const raw = JSON.stringify(event.result);
-        const shown = raw.length > 240 ? `${raw.slice(0, 240)}…` : raw;
-        push("tool", `${event.toolName} done ${shown}`);
+        push("tool", `${event.toolName} done ${previewToolResult(event.result)}`);
         break;
       case "error":
         push("error", event.message);
@@ -243,6 +307,61 @@ export function App({
   }, [draft]);
 
   useInput((input, key) => {
+    if (key.ctrl && input === "c") {
+      exit();
+      return;
+    }
+    if (view === "history") {
+      if (confirmDelete) {
+        if (key.escape || input === "n") {
+          setConfirmDelete(false);
+          return;
+        }
+        if (input === "y") {
+          const item = historyItems[historyPick];
+          if (item) {
+            store.delete(item.id);
+            if (sessionIdRef.current === item.id) startNewChat();
+            const next = store.list();
+            setHistoryItems(next);
+            setHistoryPick((i) =>
+              next.length ? Math.min(i, next.length - 1) : 0,
+            );
+          }
+          setConfirmDelete(false);
+        }
+        return;
+      }
+      if (key.escape) {
+        setView("chat");
+        return;
+      }
+      if (key.upArrow) {
+        setHistoryPick((i) =>
+          historyItems.length
+            ? (i - 1 + historyItems.length) % historyItems.length
+            : 0,
+        );
+        return;
+      }
+      if (key.downArrow) {
+        setHistoryPick((i) =>
+          historyItems.length ? (i + 1) % historyItems.length : 0,
+        );
+        return;
+      }
+      if (key.return) {
+        const item = historyItems[historyPick];
+        if (item) loadHistoryItem(item);
+        return;
+      }
+      if (input === "d") {
+        if (historyItems[historyPick]) setConfirmDelete(true);
+        return;
+      }
+      return;
+    }
+
     if (key.escape) {
       if (slashMenuOpen) {
         setDraft("");
@@ -251,10 +370,6 @@ export function App({
       if (runningRef.current && !toolRef.current) {
         abortRef.current?.abort();
       }
-      return;
-    }
-    if (key.ctrl && input === "c") {
-      exit();
       return;
     }
     if (runningRef.current) return;
@@ -297,10 +412,16 @@ export function App({
 
   const thinkH = Math.max(4, Math.floor(rows * 0.25));
   const thinkTextWidth = Math.max(10, cols - 4);
-  const slashMenuH = slashMenuOpen ? slashMatches.length + 1 : 0;
+  const slashMenuH =
+    view === "chat" && slashMenuOpen ? slashMatches.length + 1 : 0;
   const inputH = 3 + slashMenuH;
   const statusH = 1;
   const transcriptH = Math.max(6, rows - thinkH - inputH - statusH);
+  const historyWindow = visibleWindow(
+    historyItems,
+    historyPick,
+    Math.max(1, transcriptH - 2),
+  );
 
   return (
     <Box flexDirection="column" width="100%" height={rows}>
@@ -328,24 +449,43 @@ export function App({
         borderStyle="single"
         paddingX={1}
       >
-        {lines.slice(-Math.max(1, transcriptH - 2)).map((line) => (
-          <Text
-            key={line.id}
-            color={
-              line.kind === "user"
-                ? "cyan"
-                : line.kind === "error"
-                  ? "red"
-                  : line.kind === "tool"
-                    ? "gray"
-                    : undefined
-            }
-            wrap="truncate"
-          >
-            {line.kind === "user" ? "> " : ""}
-            {line.text}
-          </Text>
-        ))}
+        {view === "history" ? (
+          historyItems.length === 0 ? (
+            <Text dimColor>no past conversations</Text>
+          ) : (
+            historyWindow.items.map((item, i) => {
+              const selected = historyWindow.start + i === historyPick;
+              return (
+                <Text
+                  key={item.id}
+                  inverse={selected}
+                  wrap="truncate"
+                >
+                  {`${relativeTime(item.updatedAt)}  ${item.mode}  ${item.title}`}
+                </Text>
+              );
+            })
+          )
+        ) : (
+          lines.slice(-Math.max(1, transcriptH - 2)).map((line) => (
+            <Text
+              key={line.id}
+              color={
+                line.kind === "user"
+                  ? "cyan"
+                  : line.kind === "error"
+                    ? "red"
+                    : line.kind === "tool"
+                      ? "gray"
+                      : undefined
+              }
+              wrap="truncate"
+            >
+              {line.kind === "user" ? "> " : ""}
+              {line.text}
+            </Text>
+          ))
+        )}
       </Box>
       <Box height={statusH}>
         <Text inverse>
@@ -359,26 +499,42 @@ export function App({
         paddingX={1}
         justifyContent="flex-end"
       >
-        {slashMenuOpen ? (
-          <Box flexDirection="column" marginBottom={1}>
-            {slashMatches.map((cmd, i) => (
-              <Box key={cmd.name} gap={1}>
-                <Text inverse={i === slashIndex} bold={i === slashIndex}>
-                  {cmd.name}
-                </Text>
-                <Text dimColor={i !== slashIndex}>{cmd.description}</Text>
-              </Box>
-            ))}
-            <Text dimColor>↑↓ select · enter run · tab complete · esc dismiss</Text>
-          </Box>
-        ) : null}
-        {running ? (
-          <Text dimColor>esc abort  /plan  /implement  /agent  /new  /quit</Text>
+        {view === "history" ? (
+          confirmDelete ? (
+            <Text>
+              {`delete “${historyItems[historyPick]?.title ?? ""}”? y/n`}
+            </Text>
+          ) : (
+            <Text dimColor>↑↓ select  enter load  d delete  esc back</Text>
+          )
         ) : (
-          <Box>
-            <Text>{`> ${draft}`}</Text>
-            <Text inverse={cursorOn}> </Text>
-          </Box>
+          <>
+            {slashMenuOpen ? (
+              <Box flexDirection="column" marginBottom={1}>
+                {slashMatches.map((cmd, i) => (
+                  <Box key={cmd.name} gap={1}>
+                    <Text inverse={i === slashIndex} bold={i === slashIndex}>
+                      {cmd.name}
+                    </Text>
+                    <Text dimColor={i !== slashIndex}>{cmd.description}</Text>
+                  </Box>
+                ))}
+                <Text dimColor>
+                  ↑↓ select · enter run · tab complete · esc dismiss
+                </Text>
+              </Box>
+            ) : null}
+            {running ? (
+              <Text dimColor>
+                esc abort  /plan  /implement  /agent  /history  /new  /quit
+              </Text>
+            ) : (
+              <Box>
+                <Text>{`> ${draft}`}</Text>
+                <Text inverse={cursorOn}> </Text>
+              </Box>
+            )}
+          </>
         )}
       </Box>
     </Box>

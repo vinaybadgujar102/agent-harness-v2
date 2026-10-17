@@ -2,6 +2,7 @@ export const SLASH_COMMANDS = [
   { name: "/quit", description: "Exit the TUI", action: "quit" },
   { name: "/new", description: "Start a new chat", action: "new-chat" },
   { name: "/clear", description: "Start a new chat (alias)", action: "new-chat" },
+  { name: "/history", description: "Past conversations", action: "history" },
   { name: "/plan", description: "Plan mode (no file edits)", action: "plan-mode" },
   { name: "/agent", description: "Agent mode (edit files)", action: "agent-mode" },
   {

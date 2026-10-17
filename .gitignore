@@ -36,3 +36,6 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# TUI conversation store (tool results can hold secrets)
+**/.tuffy/conversations.sqlite*
